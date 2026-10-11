@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TILIK</title>
+  <meta name="description" content="TILIK — Ask anything. Intelligence from everywhere: the web, GitHub, news, Robinhood Chain and live markets, answered with sources." />
+  <meta name="theme-color" content="#000000" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Cg transform='translate(7 7) scale(0.78125)'%3E%3Cpath d='M8 6L34 30L20 34Z' fill='%23E4FF1A'/%3E%3Cpath d='M20 34L34 30L58 14L40 46Z' fill='%23C9E81A'/%3E%3Cpath d='M40 46L58 14L50 44Z' fill='%238FAF0F'/%3E%3Cpath d='M20 34L40 46L12 58Z' fill='%23A8C814'/%3E%3C/g%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <svg class="sr-only" aria-hidden="true" focusable="false"><symbol id="tilik-mark" viewBox="0 0 64 64"><path d="M8 6L34 30L20 34Z" fill="#E4FF1A"/><path d="M20 34L34 30L58 14L40 46Z" fill="#C9E81A"/><path d="M40 46L58 14L50 44Z" fill="#8FAF0F"/><path d="M20 34L40 46L12 58Z" fill="#A8C814"/></symbol></svg>
+  <!-- Announcement bar -->
+  <div class="announce" id="announce" role="region" aria-label="Announcement">
+    <p class="announce-title">TILIK LIVE NOW</p>
+    <p class="announce-meta mono"><span class="label">CHAIN:</span> <span class="value">Robinhood Chain · chain ID 4663</span></p>
+    <p class="announce-cta">ASK ANYTHING ON <button class="pill" type="button" data-open-chat>TILIK</button></p>
+    <button class="announce-close" type="button" aria-label="Dismiss announcement" data-dismiss>&times;</button>
+  </div>
+
+  <!-- Navigation -->
+  <header class="nav">
+    <a class="logo" href="/" aria-label="TILIK home"><svg class="logo-mark" aria-hidden="true"><use href="#tilik-mark" /></svg><span class="logo-word">TILIK</span></a>
+    <button class="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu" data-menu>
+      <span></span><span></span><span></span>
+    </button>
+  </header>
+
+  <!-- Menu: page navigation and everything except Ask -->
+  <div class="menu" id="menu" hidden>
+    <nav class="menu-inner" aria-label="Main">
+      <div class="menu-jump">
+        <p class="menu-label">ON THIS PAGE</p>
+        <ul class="jump-list">
+          <li><a href="#capabilities">What it does</a></li>
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#chain">Robinhood Chain</a></li>
+          <li><a href="#pulse">Live pulse</a></li>
+          <li><a href="#glossary">Glossary</a></li>
+          <li><a href="#trust">Trust &amp; status</a></li>
+          <li><a href="#roadmap">Roadmap</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <details class="menu-item" id="menu-sources">
+        <summary>Sources</summary>
+        <ul class="menu-list">
+          <li><span class="tag mono">web.search</span><div><b>Live Web</b><p>Real-time search and full-page reading, every claim tied to its URL.</p></div></li>
+          <li><span class="tag mono">github.repo</span><div><b>GitHub</b><p>Repositories, READMEs, code and recent commits.</p></div></li>
+          <li><span class="tag mono">news.feed</span><div><b>News</b><p>Fresh stories from curated feeds; stale news stays out.</p></div></li>
+          <li><span class="tag mono">chain.data</span><div><b>Robinhood Chain</b><p>Blocks, transactions, tokens and contracts on chain 4663.</p></div></li>
+          <li><span class="tag mono">market.data</span><div><b>Markets</b><p>On-chain prices, liquidity and volume for Robinhood Chain pools.</p></div></li>
+          <li><span class="tag mono">models</span><div><b>Many Models</b><p>Right model per question, automatic fallback when one is down.</p></div></li>
+        </ul>
+      </details>
+      <a class="menu-link" href="/docs">Docs <span aria-hidden="true">→</span></a>
+      <a class="menu-link" href="/health" target="_blank" rel="noopener">API status <span aria-hidden="true">↗</span></a>
+    </nav>
+  </div>
+
+  <!-- Wide screens only, in the side margins while reading the sections: where you are on the page (left)
+       and quick actions with the live top pool (right). Hidden on smaller screens. -->
+  <nav class="page-index" id="page-index" aria-label="Sections">
+    <p class="index-label" aria-hidden="true">ON THIS PAGE</p>
+    <ol>
+      <li><a href="#capabilities"><span class="mono">01</span>What it does</a></li>
+      <li><a href="#how"><span class="mono">02</span>How it works</a></li>
+      <li><a href="#for"><span class="mono">03</span>Built for</a></li>
+      <li><a href="#chain"><span class="mono">04</span>Robinhood Chain</a></li>
+      <li><a href="#pulse"><span class="mono">05</span>Live pulse</a></li>
+      <li><a href="#glossary"><span class="mono">06</span>Glossary</a></li>
+      <li><a href="#trust"><span class="mono">07</span>Trust</a></li>
+      <li><a href="#status"><span class="mono">08</span>Status</a></li>
+      <li><a href="#roadmap"><span class="mono">09</span>Roadmap</a></li>
+      <li><a href="#faq"><span class="mono">10</span>FAQ</a></li>
+    </ol>
+  </nav>
+  <aside class="quick" id="quick" aria-label="Quick actions">
+    <div class="quick-live" id="quick-live" hidden>
+      <p class="quick-label"><span class="live-dot" aria-hidden="true"></span>TOP POOL</p>
+      <button class="quick-pool" id="quick-pool" type="button"></button>
+    </div>
+    <button class="btn btn-primary quick-ask" type="button" data-open-chat>Ask TILIK</button>
+    <button class="quick-top" id="quick-top" type="button">↑ Back to top</button>
+  </aside>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <canvas class="hero-canvas" aria-hidden="true"></canvas>
+      <div class="hero-inner">
+        <h1>
+          <span class="accent">TILIK</span>
+          <span>INTELLIGENCE</span>
+          <span>FROM EVERYWHERE</span>
+        </h1>
+        <p class="lede">
+          Ask anything. An <strong>AI research engine</strong> for any question, and a <strong>live window into Robinhood Chain</strong>.
+          Every answer is sourced.
+        </p>
+        <form class="hero-ask" id="hero-ask" autocomplete="off" data-ask>
+          <label class="sr-only" for="hero-ask-input">Ask TILIK anything</label>
+          <input id="hero-ask-input" type="text" maxlength="4000" placeholder="Ask anything — e.g. What's happening on Robinhood Chain?" />
+          <button class="btn btn-primary" type="submit" aria-label="Ask"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
+        </form>
+        <div class="cta">
+          <button class="btn btn-primary" type="button" data-open-chat>Ask TILIK <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
+          <a class="btn btn-ghost" href="#chain">Robinhood Chain <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6" /></svg></a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Example questions, scrolling slowly; click one to fill the chat (never sent automatically) -->
+    <section class="marquee" aria-label="Example questions">
+      <div class="marquee-track">
+        <button type="button" class="marquee-item" data-open-chat="What's happening on Robinhood Chain right now?">What's happening on Robinhood Chain right now?</button>
+        <button type="button" class="marquee-item" data-open-chat="What is the price and liquidity of USDG on Robinhood Chain?">Price &amp; liquidity of USDG</button>
+        <button type="button" class="marquee-item" data-open-chat="Analyze https://github.com/honojs/hono">Analyze honojs/hono on GitHub</button>
+        <button type="button" class="marquee-item" data-open-chat="What are the latest crypto news?">Latest crypto news</button>
+        <button type="button" class="marquee-item" data-open-chat="Which Robinhood Chain pools have the most liquidity right now?">Top pools by liquidity</button>
+        <button type="button" class="marquee-item" data-open-chat="Summarize https://nodejs.org/en/about">Summarize a web page</button>
+        <button type="button" class="marquee-item" data-open-chat="Research the current state of tokenized stocks: who offers them and how they work.">Research tokenized stocks</button>
+        <button type="button" class="marquee-item" data-open-chat="Explain what a blockchain is in two sentences.">Explain a blockchain simply</button>
+      </div>
+    </section>
+
+    <!-- Continue: recent conversations from this browser (shown only when there are some) -->
+    <section class="section" id="continue" aria-labelledby="continue-title" hidden>
+      <div class="section-head">
+        <p class="eyebrow">CONTINUE</p>
+        <h2 id="continue-title">Pick up where you left off</h2>
+      </div>
+      <div class="recent-grid" id="recent-grid"></div>
+    </section>
+
+    <!-- System facts (true by construction: counts come from this build's configuration and design) -->
+    <section class="facts" aria-label="TILIK at a glance">
+      <div class="fact reveal"><span class="fact-n">3</span><span class="fact-l">AI providers with automatic fallback</span></div>
+      <div class="fact reveal"><span class="fact-n">5</span><span class="fact-l">kinds of live data: web, GitHub, news, chain, markets</span></div>
+      <div class="fact reveal"><span class="fact-n mono">4663</span><span class="fact-l">Robinhood Chain ID, read directly</span></div>
+      <div class="fact reveal"><span class="fact-n">0</span><span class="fact-l">chats stored on our servers</span></div>
+    </section>
+
+    <!-- Capabilities: each card opens the chat with an example question (never sent automatically) -->
+    <section class="section" id="capabilities" aria-labelledby="cap-title">
+      <div class="section-head status-head">
+        <div>
+          <p class="eyebrow">WHAT TILIK CAN DO</p>
+          <h2 id="cap-title">One question. Every source.</h2>
+          <p class="section-lede">Pick a starting point — TILIK fills in the question, you decide when to send it.</p>
+        </div>
+        <!-- Real readiness from /health (filled in by the page); links to the full status -->
+        <a class="ready-chip" id="ready-chip" href="#status" hidden><span class="status-dot on" aria-hidden="true"></span><span id="ready-text"></span><span aria-hidden="true">→</span></a>
+      </div>
+      <div class="cap-grid">
+        <article class="cap">
+          <span class="cap-tag mono">web.search</span>
+          <h3>Live web</h3>
+          <p>Searches and reads current pages, with every claim tied to its URL.</p>
+          <button class="cap-try" type="button" data-open-chat="Search the web: what are the most important AI developments this week?">Try: AI developments this week <span aria-hidden="true">→</span></button>
+        </article>
+        <article class="cap">
+          <span class="cap-tag mono">github.repo</span>
+          <h3>GitHub</h3>
+          <p>Reads repositories, READMEs, code, commits and contributors.</p>
+          <button class="cap-try" type="button" data-open-chat="Analyze https://github.com/honojs/hono">Try: analyze honojs/hono <span aria-hidden="true">→</span></button>
+        </article>
+        <article class="cap">
+          <span class="cap-tag mono">news.feed</span>
+          <h3>News</h3>
+          <p>Fresh stories from curated feeds — stale news stays out.</p>
+          <button class="cap-try" type="button" data-open-chat="What are the latest crypto news?">Try: latest crypto news <span aria-hidden="true">→</span></button>
+        </article>
+        <article class="cap">
+          <span class="cap-tag mono">chain.data</span>
+          <h3>Robinhood Chain</h3>
+          <p>Blocks, transactions, tokens and contracts on chain 4663.</p>
+          <button class="cap-try" type="button" data-open-chat="What's happening on Robinhood Chain right now?">Try: what's happening now <span aria-hidden="true">→</span></button>
+        </article>
+        <article class="cap">
+          <span class="cap-tag mono">market.data</span>
+          <h3>Markets</h3>
+          <p>On-chain prices, liquidity and volume for Robinhood Chain pools.</p>
+          <button class="cap-try" type="button" data-open-chat="What is the price and liquidity of USDG on Robinhood Chain?">Try: USDG price &amp; liquidity <span aria-hidden="true">→</span></button>
+        </article>
+        <article class="cap">
+          <span class="cap-tag mono">research</span>
+          <h3>Deep research</h3>
+          <p>Combines several sources into one answer, facts separated from analysis.</p>
+          <button class="cap-try" type="button" data-open-chat="Research the current state of tokenized stocks: who offers them and how they work.">Try: tokenized stocks <span aria-hidden="true">→</span></button>
+        </article>
+      </div>
+    </section>
+
+    <!-- How it works: the three steps beside the layout of a real answer (illustrative example, clearly labelled) -->
+    <section class="section tint" id="how" aria-labelledby="how-title">
+      <div class="section-head">
+        <p class="eyebrow">HOW IT WORKS</p>
+        <h2 id="how-title">Ask once. TILIK does the legwork.</h2>
+        <p class="section-lede">Every answer shows how it was made: what TILIK understood, the sources it used, the live data it found, and numbered citations you can click.</p>
+      </div>
+      <div class="how-layout">
+        <div class="how-left">
+          <ol class="how-steps">
+            <li class="reveal"><span class="how-n mono">01</span><div><h3>Understand</h3><p>Detects what you're really asking — research, code, news, chain activity, markets, or all of it — and remembers what you said earlier in the chat.</p></div></li>
+            <li class="reveal"><span class="how-n mono">02</span><div><h3>Gather</h3><p>Calls only the sources that matter, in parallel, within strict time and cost limits. Unsafe links are never opened.</p></div></li>
+            <li class="reveal"><span class="how-n mono">03</span><div><h3>Answer</h3><p>Writes one clear answer with numbered, clickable sources — and says plainly when live data couldn't be retrieved.</p></div></li>
+          </ol>
+          <!-- Try it right here: Enter sends the question (the visitor's explicit action), like the hero box -->
+          <form class="try-ask" autocomplete="off" data-ask>
+            <label class="try-label mono" for="try-ask-input">TRY IT — SEE ALL THREE STEPS LIVE</label>
+            <div class="try-row">
+              <input id="try-ask-input" type="text" maxlength="4000" placeholder="e.g. What is the price of USDG?" />
+              <button class="btn btn-primary" type="submit" aria-label="Ask"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
+            </div>
+          </form>
+        </div>
+        <div class="how-demo">
+          <div class="preview reveal">
+            <div class="preview-bar"><span></span><span></span><span></span><em>Example of the answer layout</em></div>
+            <div class="preview-body">
+              <div class="pv-user">What is the price of USDG on Robinhood Chain?</div>
+              <div class="pv-bot">
+                <div class="pv-chips"><span class="pv-chip on">MARKET</span><span class="pv-chip">ROBINHOOD CHAIN</span><span class="pv-chip">ON-CHAIN MARKET</span></div>
+                <ol class="pv-steps">
+                  <li>Understood: Robinhood Chain, Market</li>
+                  <li>Checking Robinhood Chain…</li>
+                  <li>Analyzing market data…</li>
+                  <li>Writing the answer</li>
+                </ol>
+                <div class="pv-card">
+                  <div class="pv-card-head"><b>USDG / WETH</b><span class="mono">MARKET</span></div>
+                  <div class="pv-stats"><div><i>PRICE</i><b class="mono">$1.00</b></div><div><i>24H</i><b class="mono up">+0.01%</b></div><div><i>LIQUIDITY</i><b class="mono">$24.4M</b></div><div><i>VOLUME 24H</i><b class="mono">$160M</b></div></div>
+                </div>
+                <p class="pv-answer">USDG trades at about <b>$1.00</b> in its main pool <span class="pv-cite">1</span>. Liquidity and 24-hour volume are shown above, straight from the pool data <span class="pv-cite">1</span>.</p>
+                <div class="pv-sources"><span class="pv-cite">1</span> Market: tokens named USDG <em>· api.geckoterminal.com · direct</em></div>
+              </div>
+            </div>
+          </div>
+          <p class="preview-note">Illustrative layout — figures in a real answer are fetched live when you ask.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Who it's for: every prompt is clickable -->
+    <section class="section" id="for" aria-labelledby="for-title">
+      <div class="section-head">
+        <p class="eyebrow">BUILT FOR</p>
+        <h2 id="for-title">Whatever you're working on</h2>
+      </div>
+      <div class="for-grid">
+        <article class="for reveal">
+          <h3>Traders</h3>
+          <p>Prices, liquidity and pool activity on Robinhood Chain — with the numbers sourced.</p>
+          <div class="for-prompts">
+            <button type="button" data-open-chat="Which Robinhood Chain pools have the most liquidity right now?">Top pools by liquidity</button>
+            <button type="button" data-open-chat="What is the price and liquidity of USDG on Robinhood Chain?">USDG price &amp; liquidity</button>
+          </div>
+        </article>
+        <article class="for reveal">
+          <h3>Builders</h3>
+          <p>Understand a repository fast: what it does, how it's structured, who maintains it.</p>
+          <div class="for-prompts">
+            <button type="button" data-open-chat="Analyze https://github.com/honojs/hono">Analyze a repository</button>
+            <button type="button" data-open-chat="What changed recently in https://github.com/honojs/hono?">Recent commits</button>
+          </div>
+        </article>
+        <article class="for reveal">
+          <h3>Researchers</h3>
+          <p>Several sources combined into one answer, with facts and analysis kept apart.</p>
+          <div class="for-prompts">
+            <button type="button" data-open-chat="Research the current state of tokenized stocks: who offers them and how they work.">Tokenized stocks</button>
+            <button type="button" data-open-chat="Summarize https://nodejs.org/en/about">Summarize a page</button>
+          </div>
+        </article>
+        <article class="for reveal">
+          <h3>The curious</h3>
+          <p>Plain-language answers to anything — and follow-ups that remember the conversation.</p>
+          <div class="for-prompts">
+            <button type="button" data-open-chat="Explain what a blockchain is in two sentences.">Explain a blockchain</button>
+            <button type="button" data-open-chat="What are the latest crypto news?">Today's crypto news</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Robinhood Chain chapter: what TILIK reads, the live pulse, and the vocabulary -->
+    <section class="section tint spotlight" id="chain" aria-labelledby="chain-title">
+      <div class="spot-copy">
+        <p class="eyebrow">ROBINHOOD CHAIN</p>
+        <h2 id="chain-title">A live window into chain 4663</h2>
+        <p class="section-lede">TILIK reads Robinhood Chain directly — the chain ID is verified before any data is used — and pairs it with live market data for its pools.</p>
+        <div class="spot-actions">
+          <button class="btn btn-primary" type="button" data-open-chat="What's happening on Robinhood Chain right now?">Explore the chain <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
+          <button class="btn btn-ghost" type="button" data-open-chat="Which Robinhood Chain pools have the most liquidity right now?">Top pools</button>
+        </div>
+      </div>
+      <ul class="spot-list">
+        <li class="reveal"><span class="mono">01</span><div><b>Blocks &amp; activity</b><p>Latest blocks and token transfers across recent blocks.</p></div></li>
+        <li class="reveal"><span class="mono">02</span><div><b>Addresses &amp; transactions</b><p>Paste an address or a transaction hash and ask what it did.</p></div></li>
+        <li class="reveal"><span class="mono">03</span><div><b>Tokens &amp; contracts</b><p>Names, symbols and contract details — symbols aren't unique, so TILIK shows the address.</p></div></li>
+        <li class="reveal"><span class="mono">04</span><div><b>Pools &amp; prices</b><p>Price, liquidity and volume per pool via GeckoTerminal.</p></div></li>
+      </ul>
+    </section>
+
+    <!-- Live pulse: real data from /api/pulse (cached on the server; no AI model involved) -->
+    <section class="section tint cont" id="pulse" aria-labelledby="pulse-title">
+      <div class="section-head status-head">
+        <div>
+          <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span>LIVE PULSE</p>
+          <h2 id="pulse-title">Right now on Robinhood Chain</h2>
+          <p class="section-lede">Real data, refreshed every minute. Click anything to ask TILIK about it.</p>
+        </div>
+        <span class="pulse-updated mono" id="pulse-updated" aria-live="polite"></span>
+      </div>
+      <div class="pulse-grid">
+        <article class="pulse-card pulse-chain" id="pulse-chain">
+          <h3>Chain pulse <span class="pulse-sub">latest block</span></h3>
+          <div class="pulse-body"><p class="pulse-loading">Loading…</p></div>
+        </article>
+        <article class="pulse-card" id="pulse-market">
+          <h3>Top pools <span class="pulse-sub">by liquidity · min $100k</span></h3>
+          <div class="pulse-body"><p class="pulse-loading">Loading…</p></div>
+        </article>
+        <article class="pulse-card" id="pulse-news">
+          <h3>Latest headlines <span class="pulse-sub">crypto · AI · tech</span></h3>
+          <div class="pulse-body"><p class="pulse-loading">Loading…</p></div>
+        </article>
+      </div>
+      <p class="preview-note">Market data via GeckoTerminal, chain data from the Robinhood Chain RPC, headlines from curated RSS feeds. Not financial advice.</p>
+    </section>
+
+    <!-- Glossary: every term can be explained by TILIK in the chat -->
+    <section class="section tint cont" id="glossary" aria-labelledby="glossary-title">
+      <div class="section-head status-head">
+        <div>
+          <p class="eyebrow">GLOSSARY</p>
+          <h2 id="glossary-title">Robinhood Chain &amp; DeFi, in plain words</h2>
+          <p class="section-lede">Quick definitions — tap "Ask" for a fuller explanation with live examples.</p>
+        </div>
+        <div class="term-search">
+          <label class="sr-only" for="term-search-input">Look up a term</label>
+          <input id="term-search-input" type="search" maxlength="60" placeholder="Look up a term…" autocomplete="off" />
+        </div>
+      </div>
+      <dl class="glossary">
+        <div class="term reveal"><dt>Robinhood Chain</dt><dd>A blockchain (chain ID 4663) for tokenized assets and apps, compatible with Ethereum tools.</dd><button type="button" data-open-chat="Explain Robinhood Chain in simple terms: what it is and what it's for.">Ask</button></div>
+        <div class="term reveal"><dt>Tokenized stock</dt><dd>A token that tracks the price of a real-world share, so it can trade on-chain.</dd><button type="button" data-open-chat="What is a tokenized stock and how does it work on Robinhood Chain?">Ask</button></div>
+        <div class="term reveal"><dt>Liquidity pool</dt><dd>Two tokens locked in a smart contract so people can swap between them.</dd><button type="button" data-open-chat="Explain liquidity pools simply, with an example from Robinhood Chain.">Ask</button></div>
+        <div class="term reveal"><dt>Liquidity</dt><dd>How much value sits in a pool. Low liquidity means big price moves on small trades.</dd><button type="button" data-open-chat="Why does liquidity matter when trading a token? Explain simply.">Ask</button></div>
+        <div class="term reveal"><dt>24h volume</dt><dd>The value traded in the last 24 hours. Huge volume on tiny liquidity is a red flag.</dd><button type="button" data-open-chat="What does 24h trading volume tell me, and when is it a red flag?">Ask</button></div>
+        <div class="term reveal"><dt>FDV</dt><dd>Fully diluted valuation: price × the maximum token supply.</dd><button type="button" data-open-chat="What is FDV (fully diluted valuation) and how is it different from market cap?">Ask</button></div>
+        <div class="term reveal"><dt>Contract address</dt><dd>A token's unique ID. Symbols can be copied — always check the address.</dd><button type="button" data-open-chat="Why should I check a token's contract address instead of its symbol?">Ask</button></div>
+        <div class="term reveal"><dt>Gas</dt><dd>The fee paid to have a transaction processed on the chain.</dd><button type="button" data-open-chat="What is gas on a blockchain like Robinhood Chain? Explain simply.">Ask</button></div>
+        <div class="term reveal"><dt>Block</dt><dd>A batch of transactions added to the chain; block numbers only go up.</dd><button type="button" data-open-chat="What is a block on a blockchain? Explain with the latest Robinhood Chain block.">Ask</button></div>
+        <div class="term reveal"><dt>Stablecoin</dt><dd>A token designed to stay at a fixed price, usually $1 — USDG is one.</dd><button type="button" data-open-chat="What is a stablecoin, and how does USDG keep its price?">Ask</button></div>
+      </dl>
+      <!-- Shown when the lookup matches nothing above: TILIK can still explain it -->
+      <div class="term-miss" id="term-miss" hidden>
+        <p>Not in this list yet.</p>
+        <button class="btn btn-ghost" type="button" id="term-miss-ask"></button>
+      </div>
+    </section>
+
+    <!-- Trust & safety -->
+    <section class="section" id="trust" aria-labelledby="trust-title">
+      <div class="section-head">
+        <p class="eyebrow">TRUST &amp; SAFETY</p>
+        <h2 id="trust-title">Built to be checked, not just trusted</h2>
+      </div>
+      <div class="trust-grid">
+        <div class="trust reveal">
+          <span class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /><path d="M9 14l2 2 4-4" /></svg></span>
+          <h3>Sourced or it's not said</h3><p>Live facts come only from retrieved sources. Citations to sources that don't exist are removed.</p>
+        </div>
+        <div class="trust reveal">
+          <span class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="3.5" /><path d="M10 13l10-10" /><path d="M16 7l3 3" /><path d="M13.5 9.5l2 2" /></svg></span>
+          <h3>Keys stay on the server</h3><p>API keys never reach your browser, logs or answers.</p>
+        </div>
+        <div class="trust reveal">
+          <span class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><path d="M9.5 9.5l5 5M14.5 9.5l-5 5" /></svg></span>
+          <h3>Unsafe links blocked</h3><p>Local, private-network and malicious links are refused before anything is fetched.</p>
+        </div>
+        <div class="trust reveal">
+          <span class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M2 20h20" /></svg></span>
+          <h3>Your history, your device</h3><p>Chats are kept in this browser only. Delete one and it's gone.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Live system status (from /health: booleans only) -->
+    <section class="section cont" id="status" aria-labelledby="status-title">
+      <div class="section-head status-head">
+        <div>
+          <p class="eyebrow">LIVE STATUS</p>
+          <h2 id="status-title">What TILIK can use right now</h2>
+        </div>
+        <button class="btn btn-ghost status-refresh" type="button" id="status-refresh">Refresh</button>
+      </div>
+      <div class="status-group">
+        <h3 class="status-label">AI models</h3>
+        <ul class="status-list" id="status-models"><li class="status-loading">Checking…</li></ul>
+      </div>
+      <div class="status-group">
+        <h3 class="status-label">Data sources</h3>
+        <ul class="status-list" id="status-tools"><li class="status-loading">Checking…</li></ul>
+      </div>
+      <p class="status-note" id="status-note" aria-live="polite"></p>
+    </section>
+
+    <!-- Roadmap: what exists today vs what is planned (clearly labelled) -->
+    <section class="section tint" id="roadmap" aria-labelledby="roadmap-title">
+      <div class="section-head">
+        <p class="eyebrow">ROADMAP</p>
+        <h2 id="roadmap-title">What's new, and what's next</h2>
+      </div>
+      <div class="roadmap">
+        <div class="road-col">
+          <h3><span class="road-badge live">Live now</span></h3>
+          <ul>
+            <li class="reveal"><b>Multi-source answers</b><span>Web, GitHub, news, Robinhood Chain and markets in one answer.</span></li>
+            <li class="reveal"><b>Clickable citations</b><span>Every live fact links to the source it came from.</span></li>
+            <li class="reveal"><b>Conversation memory</b><span>Follow-ups like "what about its liquidity?" just work.</span></li>
+            <li class="reveal"><b>Automatic model fallback</b><span>OpenRouter, then Gemini, then Groq — each tried once.</span></li>
+            <li class="reveal"><b>Live pulse</b><span>Chain, top pools and headlines right on this page.</span></li>
+          </ul>
+        </div>
+        <div class="road-col next">
+          <h3><span class="road-badge next">Planned</span><span class="pulse-sub">not available yet</span></h3>
+          <ul>
+            <li class="reveal"><b>Address history</b><span>Full wallet and token history via an explorer API.</span></li>
+            <li class="reveal"><b>Shareable answers</b><span>A link to an answer with its sources.</span></li>
+            <li class="reveal"><b>Bahasa Indonesia</b><span>The interface and answers in Indonesian.</span></li>
+            <li class="reveal"><b>Public launch</b><span>A hosted version on its own domain.</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="faq-layout">
+        <div class="section-head">
+          <p class="eyebrow">FAQ</p>
+          <h2 id="faq-title">Good to know</h2>
+          <p class="section-lede">Short answers to what people ask first. Anything else — just ask TILIK.</p>
+          <div class="faq-actions">
+            <button class="btn btn-ghost" type="button" data-open-chat>Ask a question</button>
+            <a class="btn btn-ghost" href="/docs">Read the docs</a>
+          </div>
+        </div>
+        <div class="faq">
+          <details>
+            <summary>Where do the answers come from?</summary>
+            <p>Live facts — prices, transactions, news, repository contents — come only from the sources TILIK retrieves for your question, and every one is numbered and linked. If something can't be retrieved, TILIK says so instead of guessing.</p>
+          </details>
+          <details>
+            <summary>Which AI models answer?</summary>
+            <p>OpenRouter is the primary provider, with Gemini and Groq as automatic fallbacks. Each model is tried at most once per question, so a slow or failing provider never stalls your answer for long.</p>
+          </details>
+          <details>
+            <summary>Is my chat history stored on a server?</summary>
+            <p>No. Conversations are saved only in this browser. Delete a chat from the history menu and it's gone from this device. Only the recent turns of the chat you're in are sent along with a follow-up question.</p>
+          </details>
+          <details>
+            <summary>Can I paste any link?</summary>
+            <p>Public web pages and GitHub repositories, yes. Private networks, local addresses and unsafe links are blocked before anything is fetched.</p>
+          </details>
+          <details>
+            <summary>Is this financial advice?</summary>
+            <p>No. Market and on-chain data are shown as facts with their sources and time; analysis is labelled as analysis. Always do your own research.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- Closing call to action -->
+    <section class="cta-band" aria-label="Ask TILIK">
+      <h2>Ready when you are.</h2>
+      <p>Ask about anything — the web, a repository, today's news or Robinhood Chain.</p>
+      <button class="btn btn-primary" type="button" data-open-chat>Ask TILIK <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a class="logo" href="/" aria-label="TILIK home"><svg class="logo-mark" aria-hidden="true"><use href="#tilik-mark" /></svg><span class="logo-word">TILIK</span></a>
+        <p class="footer-about">The AI engine that answers anything. Built to read the live web, code, news and Robinhood Chain, and to show every source it used.</p>
+      </div>
+      <div class="footer-cols">
+        <div>
+          <h4>Products</h4>
+          <button type="button" data-open-chat>Ask TILIK</button>
+          <button type="button" data-open-chat="What's happening on Robinhood Chain today?">Chain Intel</button>
+          <button type="button" data-open-chat="Which Robinhood Chain pools have the most liquidity right now?">Markets</button>
+          <button type="button" data-open-chat="Analyze https://github.com/honojs/hono">GitHub Intel</button>
+        </div>
+        <div>
+          <h4>Resources</h4>
+          <a href="/docs">Documentation</a>
+          <button type="button" data-open-menu="menu-sources">Sources</button>
+          <a href="#how">How it works</a>
+          <a href="/health" target="_blank" rel="noopener">API Status</a>
+          <a href="/models" target="_blank" rel="noopener">Models</a>
+        </div>
+        <div>
+          <h4>Explore</h4>
+          <a href="#pulse">Live pulse</a>
+          <a href="#glossary">Glossary</a>
+          <a href="#roadmap">Roadmap</a>
+          <a href="#faq">FAQ</a>
+        </div>
+      </div>
+    </div>
+    <p class="copyright">© 2026 TILIK. All rights reserved.</p>
+  </footer>
+
+  <!-- Chat (opened by "Ask TILIK"): conversation history + the active conversation -->
+  <div class="chat" id="chat" role="dialog" aria-modal="true" aria-label="Ask TILIK" hidden>
+    <aside class="history" id="history" aria-label="Conversations">
+      <button class="new-chat" type="button" data-new-chat>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>New chat
+      </button>
+      <p class="history-label">Recent</p>
+      <ol class="history-list" id="history-list"></ol>
+      <p class="history-empty" id="history-empty">No conversations yet.</p>
+    </aside>
+    <div class="history-backdrop" hidden></div>
+    <section class="chat-main">
+      <canvas class="chat-canvas" aria-hidden="true"></canvas>
+      <header class="chat-top">
+        <div class="chat-top-left">
+          <button class="icon-btn history-toggle" type="button" aria-label="Show conversations" aria-controls="history" aria-expanded="false" data-toggle-history>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" /></svg>
+          </button>
+          <span class="logo"><svg class="logo-mark" aria-hidden="true"><use href="#tilik-mark" /></svg><span class="logo-word">TILIK</span></span>
+        </div>
+        <div class="chat-top-right">
+          <button class="icon-btn new-chat-icon" type="button" aria-label="New chat" data-new-chat>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          </button>
+          <button class="chat-close" type="button" aria-label="Close chat" data-close-chat>&times;</button>
+        </div>
+      </header>
+      <div class="chat-log" id="chat-log" aria-live="polite"></div>
+      <p class="persist-warning" id="persist-warning" role="status" hidden></p>
+      <form class="chat-form" id="chat-form" autocomplete="off">
+        <label class="sr-only" for="chat-input">Your question</label>
+        <textarea id="chat-input" rows="1" maxlength="4000" placeholder="Ask anything…" required></textarea>
+        <button class="btn btn-primary" type="submit" id="chat-send" aria-label="Send"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
+      </form>
+    </section>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

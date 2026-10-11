@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+# Local design references (third-party screen recording) — not part of the app
+v/
+refensi landing oage

@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TILIK Docs</title>
+  <meta name="description" content="TILIK documentation: how to ask, where answers come from, Robinhood Chain and market data, conversations, and the HTTP API." />
+  <meta name="theme-color" content="#000000" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Cg transform='translate(7 7) scale(0.78125)'%3E%3Cpath d='M8 6L34 30L20 34Z' fill='%23E4FF1A'/%3E%3Cpath d='M20 34L34 30L58 14L40 46Z' fill='%23C9E81A'/%3E%3Cpath d='M40 46L58 14L50 44Z' fill='%238FAF0F'/%3E%3Cpath d='M20 34L40 46L12 58Z' fill='%23A8C814'/%3E%3C/g%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs.css" />
+</head>
+<body class="docs-page">
+  <svg class="sr-only" aria-hidden="true" focusable="false"><symbol id="tilik-mark" viewBox="0 0 64 64"><path d="M8 6L34 30L20 34Z" fill="#E4FF1A"/><path d="M20 34L34 30L58 14L40 46Z" fill="#C9E81A"/><path d="M40 46L58 14L50 44Z" fill="#8FAF0F"/><path d="M20 34L40 46L12 58Z" fill="#A8C814"/></symbol></svg>
+  <header class="nav docs-nav">
+    <div class="docs-brand">
+      <a class="logo" href="/" aria-label="TILIK home"><svg class="logo-mark" aria-hidden="true"><use href="#tilik-mark" /></svg><span class="logo-word">TILIK</span></a>
+      <span class="docs-badge">DOCS</span>
+    </div>
+    <div class="docs-nav-right">
+      <a class="docs-navlink" href="/">Home</a>
+      <button class="docs-toc-btn" type="button" aria-controls="docs-sidebar" aria-expanded="false" data-toc>Contents</button>
+      <a class="btn btn-primary docs-ask" href="/#ask">Ask TILIK <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>
+    </div>
+  </header>
+
+  <!-- Docs hero -->
+  <section class="docs-hero">
+    <p class="eyebrow">DOCUMENTATION</p>
+    <h1>Everything TILIK can do, <span class="accent">and how it does it.</span></h1>
+    <p class="docs-lede">Ask in plain words, get one answer with numbered sources. This guide covers asking good questions, where answers come from, Robinhood Chain and market data, your conversations, and the HTTP API.</p>
+    <div class="docs-search">
+      <label class="sr-only" for="docs-search-input">Search the docs</label>
+      <input id="docs-search-input" type="search" placeholder="Search the docs…" autocomplete="off" />
+      <kbd aria-hidden="true">/</kbd>
+    </div>
+    <p class="docs-search-empty" id="docs-search-empty" hidden>Nothing in the docs matches that. <a href="/#ask">Ask TILIK instead →</a></p>
+    <div class="docs-quick">
+      <a class="quick-card" href="#quickstart"><span class="mono">01</span><b>Quickstart</b><span>Your first answer in under a minute.</span></a>
+      <a class="quick-card" href="#asking"><span class="mono">02</span><b>Asking well</b><span>Links, repos, addresses, tickers.</span></a>
+      <a class="quick-card" href="#sources"><span class="mono">03</span><b>Sources</b><span>The eight live sources behind answers.</span></a>
+      <a class="quick-card" href="#api"><span class="mono">04</span><b>API</b><span>POST /chat, streaming and errors.</span></a>
+    </div>
+  </section>
+
+  <div class="docs-layout">
+    <!-- Contents (sticky on desktop, a drawer on phones) -->
+    <aside class="docs-sidebar" id="docs-sidebar" aria-label="Documentation contents">
+      <nav>
+        <p class="side-group">GET STARTED</p>
+        <a href="#overview">Overview</a>
+        <a href="#quickstart">Quickstart</a>
+        <a href="#asking">Asking good questions</a>
+        <p class="side-group">HOW IT WORKS</p>
+        <a href="#pipeline">From question to answer</a>
+        <a href="#sources">Sources</a>
+        <a href="#trust">Citations &amp; trust</a>
+        <p class="side-group">ROBINHOOD CHAIN</p>
+        <a href="#chain">Chain data</a>
+        <a href="#markets">Markets &amp; pools</a>
+        <p class="side-group">USING TILIK</p>
+        <a href="#conversations">Conversations</a>
+        <a href="#privacy">Privacy</a>
+        <p class="side-group">API</p>
+        <a href="#api">Ask: POST /chat</a>
+        <a href="#streaming">Streaming</a>
+        <a href="#response">The response</a>
+        <a href="#endpoints">Other endpoints</a>
+        <a href="#errors">Errors &amp; limits</a>
+        <p class="side-group">HELP</p>
+        <a href="#troubleshooting">Troubleshooting</a>
+      </nav>
+    </aside>
+    <div class="docs-backdrop" hidden></div>
+
+    <main class="docs-main">
+      <!-- Overview -->
+      <section class="doc" id="overview">
+        <p class="doc-kicker mono">GET STARTED</p>
+        <h2>Overview</h2>
+        <p>TILIK is an AI research engine for any question, and a live window into <b>Robinhood Chain</b> (chain ID <code>4663</code>). You ask in your own words; TILIK works out what kind of question it is, checks only the sources that matter, and writes one clear answer where every live fact is tied to a numbered, clickable source.</p>
+        <div class="stat-row">
+          <div><b>3</b><span>AI providers, automatic fallback</span></div>
+          <div><b>8</b><span>live source integrations</span></div>
+          <div><b class="mono">4663</b><span>Robinhood Chain ID</span></div>
+          <div><b>0</b><span>chats stored on servers</span></div>
+        </div>
+        <div class="callout tip"><b>Good to know</b><p>TILIK never guesses live numbers. If a source can't be reached, the answer says so instead of inventing data.</p></div>
+      </section>
+
+      <!-- Quickstart -->
+      <section class="doc" id="quickstart">
+        <p class="doc-kicker mono">GET STARTED</p>
+        <h2>Quickstart</h2>
+        <ol class="steps-list">
+          <li><span class="step-n mono">1</span><div><b>Open TILIK and ask</b><p>Type in the box on the home page and press <kbd>Enter</kbd>, or press <b>Ask TILIK</b> to open the chat.</p></div></li>
+          <li><span class="step-n mono">2</span><div><b>Watch it work</b><p>Chips show what TILIK understood (Market, GitHub, Research…), and a short list shows each source it checked and how long it took.</p></div></li>
+          <li><span class="step-n mono">3</span><div><b>Check the sources</b><p>Numbers like <span class="cite-demo">1</span> in the answer open the source they came from. The full list is under the answer.</p></div></li>
+          <li><span class="step-n mono">4</span><div><b>Follow up</b><p>Ask "what about its liquidity?" or "compare it with the other one" — TILIK remembers the conversation.</p></div></li>
+        </ol>
+        <a class="btn btn-primary doc-cta" href="/#ask">Ask your first question <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>
+      </section>
+
+      <!-- Asking good questions -->
+      <section class="doc" id="asking">
+        <p class="doc-kicker mono">GET STARTED</p>
+        <h2>Asking good questions</h2>
+        <p>TILIK picks its sources from what you write. A few details make answers sharper:</p>
+        <div class="table-wrap">
+          <table class="doc-table">
+            <thead><tr><th>Include…</th><th>TILIK will…</th></tr></thead>
+            <tbody>
+              <tr><td>A web link <code>https://…</code></td><td>Read that page and answer from it.</td></tr>
+              <tr><td>A GitHub repo (<code>owner/repo</code> or its link)</td><td>Analyze the repository: README, structure, code, commits, issues, releases.</td></tr>
+              <tr><td>An address <code>0x…</code> (40 hex) or a transaction hash (64 hex)</td><td>Look it up on Robinhood Chain.</td></tr>
+              <tr><td>A token symbol like <code>USDG</code></td><td>Find its pools and market data. Symbols aren't unique — add the contract address to be exact.</td></tr>
+              <tr><td>"latest", "today", "this week"</td><td>Use fresh news and web search.</td></tr>
+              <tr><td>"research", "compare", "in depth"</td><td>Run deep research: more searches and pages, a longer answer. Slower.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>Try these</h3>
+        <ul class="examples" id="examples">
+          <li data-q="What's happening on Robinhood Chain right now?"><span class="ex-tag mono">chain</span></li>
+          <li data-q="What is the price and liquidity of USDG on Robinhood Chain?"><span class="ex-tag mono">market</span></li>
+          <li data-q="Analyze https://github.com/honojs/hono"><span class="ex-tag mono">github</span></li>
+          <li data-q="Summarize https://nodejs.org/en/about"><span class="ex-tag mono">web page</span></li>
+          <li data-q="What are the latest crypto news?"><span class="ex-tag mono">news</span></li>
+          <li data-q="Research the current state of tokenized stocks: who offers them and how they work."><span class="ex-tag mono">research</span></li>
+        </ul>
+        <p class="note">"Try" opens TILIK with the question filled in — nothing is sent until you press Send.</p>
+      </section>
+
+      <!-- Pipeline -->
+      <section class="doc" id="pipeline">
+        <p class="doc-kicker mono">HOW IT WORKS</p>
+        <h2>From question to answer</h2>
+        <div class="pipeline">
+          <div class="pipe-step"><span class="mono">01</span><b>Understand</b><p>Detects the kind of question — research, code, news, chain, markets, or several at once — and which links, repos, addresses or tickers it mentions. Earlier messages in the chat count too.</p></div>
+          <div class="pipe-arrow" aria-hidden="true"></div>
+          <div class="pipe-step"><span class="mono">02</span><b>Gather</b><p>Calls only the sources that matter, in parallel, under strict time and call limits. If one fails, its backup takes over. Unsafe links are never opened.</p></div>
+          <div class="pipe-arrow" aria-hidden="true"></div>
+          <div class="pipe-step"><span class="mono">03</span><b>Answer</b><p>A model writes one answer from the gathered sources. OpenRouter goes first, then Gemini, then Groq — each tried at most once — and citations are checked before you see them.</p></div>
+        </div>
+        <div class="callout"><b>How long does it take?</b><p>Simple questions usually take a few seconds. Deep research reads many pages and lets a reasoning model think longer, so it can take a minute or more — the steps list shows progress as it goes.</p></div>
+      </section>
+
+      <!-- Sources -->
+      <section class="doc" id="sources">
+        <p class="doc-kicker mono">HOW IT WORKS</p>
+        <h2>Sources</h2>
+        <p>Eight integrations supply live data. The dot shows whether this TILIK server has each one set up right now <span class="mono status-when" id="status-when"></span>.</p>
+        <div class="source-grid">
+          <article class="source-card" data-tool="tavily"><header><b>Tavily</b><span class="dot" aria-hidden="true"></span></header><p>Web search for current pages and news.</p><span class="src-role mono">web search · backup: Exa</span></article>
+          <article class="source-card" data-tool="exa"><header><b>Exa</b><span class="dot" aria-hidden="true"></span></header><p>Second web search engine. For research, it searches together with Tavily for more varied sources.</p><span class="src-role mono">web search · backup: Tavily</span></article>
+          <article class="source-card" data-tool="jina"><header><b>Jina Reader</b><span class="dot" aria-hidden="true"></span></header><p>Reads full web pages as clean text.</p><span class="src-role mono">page reader · backup: Firecrawl</span></article>
+          <article class="source-card" data-tool="firecrawl"><header><b>Firecrawl</b><span class="dot" aria-hidden="true"></span></header><p>Reads heavy or script-built pages when the first reader can't.</p><span class="src-role mono">page reader · backup: Jina</span></article>
+          <article class="source-card" data-tool="github"><header><b>GitHub</b><span class="dot" aria-hidden="true"></span></header><p>Repositories: README, files, commits, issues, pull requests, releases, contributors.</p><span class="src-role mono">code</span></article>
+          <article class="source-card" data-tool="rss"><header><b>News feeds</b><span class="dot" aria-hidden="true"></span></header><p>Fresh stories from curated feeds; stale news stays out.</p><span class="src-role mono">news · backup: web search</span></article>
+          <article class="source-card" data-tool="robinhood-chain"><header><b>Robinhood Chain</b><span class="dot" aria-hidden="true"></span></header><p>Blocks, transactions, addresses, tokens and contracts, read from the chain itself.</p><span class="src-role mono">on-chain</span></article>
+          <article class="source-card" data-tool="geckoterminal"><header><b>GeckoTerminal</b><span class="dot" aria-hidden="true"></span></header><p>Pool prices, liquidity and volume for Robinhood Chain.</p><span class="src-role mono">markets</span></article>
+        </div>
+        <p class="note">"Set up" means the server can use it; a source can still be briefly unreachable — answers say so when that happens.</p>
+      </section>
+
+      <!-- Trust -->
+      <section class="doc" id="trust">
+        <p class="doc-kicker mono">HOW IT WORKS</p>
+        <h2>Citations &amp; trust</h2>
+        <div class="trust-list">
+          <div><span class="tl-icon mono">[n]</span><div><b>Sourced or it's not said</b><p>Live facts come only from retrieved sources, each marked with a number you can click. Citations to sources that don't exist are removed before you see the answer.</p></div></div>
+          <div><span class="tl-icon mono">!</span><div><b>Honest about gaps</b><p>If needed live data couldn't be retrieved, a notice says so and the answer contains no real-time facts for that part.</p></div></div>
+          <div><span class="tl-icon mono">≠</span><div><b>Facts apart from analysis</b><p>What a source says is kept separate from TILIK's own reasoning about it.</p></div></div>
+          <div><span class="tl-icon mono">⊘</span><div><b>Unsafe links blocked</b><p>Local, private-network and unsafe links are refused before anything is fetched. Instruction-like text hidden in web pages is stripped, and links in an answer that aren't sources are removed.</p></div></div>
+          <div><span class="tl-icon mono">⚿</span><div><b>Keys stay on the server</b><p>API keys never reach your browser, the answers, or the logs.</p></div></div>
+        </div>
+      </section>
+
+      <!-- Chain -->
+      <section class="doc" id="chain">
+        <p class="doc-kicker mono">ROBINHOOD CHAIN</p>
+        <h2>Chain data</h2>
+        <p>TILIK reads Robinhood Chain (chain ID <code>4663</code>) directly over its RPC, and checks the chain ID before using any data, so a misconfigured endpoint can't feed it another chain's numbers.</p>
+        <div class="table-wrap">
+          <table class="doc-table">
+            <thead><tr><th>Ask about</th><th>Example</th></tr></thead>
+            <tbody>
+              <tr><td>Latest blocks &amp; activity</td><td>"What's happening on Robinhood Chain right now?"</td></tr>
+              <tr><td>An address</td><td>"What is <code>0x…</code>? Is it a contract?"</td></tr>
+              <tr><td>A transaction</td><td>"What did transaction <code>0x…</code> do?"</td></tr>
+              <tr><td>Tokens &amp; contracts</td><td>"Show the token details for <code>0x…</code>"</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout warn"><b>Coming later</b><p>Full wallet and token history for an address needs an explorer API and is on the roadmap. If the public RPC is unreachable, chain answers say so; market data and news keep working.</p></div>
+      </section>
+
+      <!-- Markets -->
+      <section class="doc" id="markets">
+        <p class="doc-kicker mono">ROBINHOOD CHAIN</p>
+        <h2>Markets &amp; pools</h2>
+        <p>Prices, liquidity, 24-hour volume and price change come from GeckoTerminal pools on Robinhood Chain, shown as cards above the answer with the time they were fetched.</p>
+        <ul class="bullets">
+          <li><b>Symbols aren't unique.</b> Anyone can create a token called "USDG"; TILIK shows the contract address so you can check it's the real one.</li>
+          <li><b>The live pulse</b> on the home page lists the top pools by liquidity — only pools with at least <b>$100k</b> liquidity, so thin or wash-traded pools aren't promoted. It refreshes every minute.</li>
+          <li><b>Not financial advice.</b> Numbers are shown as facts with their source and time; analysis is labelled as analysis.</li>
+        </ul>
+      </section>
+
+      <!-- Conversations -->
+      <section class="doc" id="conversations">
+        <p class="doc-kicker mono">USING TILIK</p>
+        <h2>Conversations</h2>
+        <ul class="bullets">
+          <li><b>History</b> — every chat is listed in the sidebar (the ☰ button on phones). Rename or delete one from its ⋯ menu.</li>
+          <li><b>Follow-ups</b> — TILIK sends the recent turns of the current chat, plus the links, repos, addresses, transactions and tickers mentioned, so "it" and "that pool" resolve correctly.</li>
+          <li><b>Links to a chat</b> — each chat has its own address (<code>/chat/…</code>). It reopens the chat in the same browser; it isn't a share link, because chats live only in that browser.</li>
+          <li><b>New chat</b> — start fresh any time with <b>New chat</b>; earlier chats stay in the list.</li>
+        </ul>
+      </section>
+
+      <!-- Privacy -->
+      <section class="doc" id="privacy">
+        <p class="doc-kicker mono">USING TILIK</p>
+        <h2>Privacy</h2>
+        <p>Your chats are saved <b>only in this browser</b> (local storage), not on TILIK's servers. Deleting a chat — or clearing your browser's site data — removes it for good. To answer, the server receives your question and the recent turns of that chat, and the sources it fetches see only the queries needed to answer.</p>
+        <div class="callout tip"><b>Tip</b><p>Don't paste passwords, private keys or seed phrases into any chat. TILIK never needs them.</p></div>
+      </section>
+
+      <!-- API -->
+      <section class="doc" id="api">
+        <p class="doc-kicker mono">API</p>
+        <h2>Ask: <span class="method post">POST</span> <code class="endpoint">/chat</code></h2>
+        <p>The web app uses the same HTTP API you can call yourself. Send JSON; get the answer as JSON, or as a live event stream. Replace <code>http://localhost:8787</code> with your TILIK address. If the server's owner turned on an access key, add <code>Authorization: Bearer &lt;key&gt;</code>.</p>
+        <div class="code-tabs" data-tabs>
+          <div class="tab-bar" role="tablist">
+            <button type="button" role="tab" aria-selected="true" data-tab="curl">curl</button>
+            <button type="button" role="tab" aria-selected="false" data-tab="js">JavaScript</button>
+          </div>
+          <div class="tab-panel" data-panel="curl">
+            <pre class="code"><button class="copy" type="button">Copy</button><code>curl -s http://localhost:8787/chat \
+  -H "content-type: application/json" \
+  -d '{"message": "What is the price of USDG on Robinhood Chain?"}'</code></pre>
+          </div>
+          <div class="tab-panel" data-panel="js" hidden>
+            <pre class="code"><button class="copy" type="button">Copy</button><code>const res = await fetch("http://localhost:8787/chat", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ message: "What is the price of USDG on Robinhood Chain?" }),
+});
+const answer = await res.json();
+console.log(answer.answer, answer.sources);</code></pre>
+          </div>
+        </div>
+        <h3>Request body</h3>
+        <div class="table-wrap">
+          <table class="doc-table params">
+            <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>message</code> <span class="req">required</span></td><td>string</td><td>Your question, 1–8,000 characters.</td></tr>
+              <tr><td><code>stream</code></td><td>boolean</td><td>Stream events as they happen (Server-Sent Events). Default <code>false</code>.</td></tr>
+              <tr><td><code>mode</code></td><td><code>"auto"</code> | <code>"research"</code></td><td><code>research</code> forces deep research. Default <code>auto</code>.</td></tr>
+              <tr><td><code>model</code></td><td>string</td><td><code>auto</code>, a provider (<code>openrouter</code>, <code>gemini</code>, <code>groq</code>) or <code>provider:model</code> from <code>GET /models</code>. Default <code>auto</code>.</td></tr>
+              <tr><td><code>strictModel</code></td><td>boolean</td><td>Never fall back to another model. Default <code>false</code>.</td></tr>
+              <tr><td><code>history</code></td><td>array</td><td>Earlier turns: <code>{ "role": "user" | "assistant", "content": "…" }</code>. Up to 50 items, 24,000 characters in total.</td></tr>
+              <tr><td><code>context.entities</code></td><td>object</td><td>Things mentioned earlier, so follow-ups resolve: <code>urls</code> (≤5), <code>githubRepos</code> (≤3), <code>addresses</code> (≤5), <code>txHashes</code> (≤3), <code>tickers</code> (≤5).</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Streaming -->
+      <section class="doc" id="streaming">
+        <p class="doc-kicker mono">API</p>
+        <h2>Streaming</h2>
+        <p>With <code>"stream": true</code> the response is an event stream (<code>text/event-stream</code>). Events arrive in this order:</p>
+        <div class="table-wrap">
+          <table class="doc-table">
+            <thead><tr><th>Event</th><th>What it tells you</th></tr></thead>
+            <tbody>
+              <tr><td><code>request.started</code></td><td>The request id.</td></tr>
+              <tr><td><code>intent.detected</code></td><td>What kind of question it is.</td></tr>
+              <tr><td><code>plan.created</code></td><td>Which sources will be checked.</td></tr>
+              <tr><td><code>status</code></td><td>A short progress message.</td></tr>
+              <tr><td><code>tool.started</code> / <code>tool.completed</code></td><td>Each source call, with its result and time.</td></tr>
+              <tr><td><code>source.discovered</code></td><td>A source that may be cited.</td></tr>
+              <tr><td><code>model.selected</code></td><td>The model writing the answer.</td></tr>
+              <tr><td><code>response.delta</code></td><td>The next piece of answer text (<code>text</code>).</td></tr>
+              <tr><td><code>response.completed</code></td><td>The full final response (same shape as the JSON answer).</td></tr>
+              <tr><td><code>error</code></td><td>Something failed; <code>error.kind</code> and <code>error.message</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre class="code"><button class="copy" type="button">Copy</button><code>const res = await fetch("http://localhost:8787/chat", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ message: "Latest crypto news", stream: true }),
+});
+const reader = res.body.getReader();
+const decoder = new TextDecoder();
+let buffer = "";
+for (;;) {
+  const { value, done } = await reader.read();
+  if (done) break;
+  buffer += decoder.decode(value, { stream: true });
+  let cut;
+  while ((cut = buffer.indexOf("\n\n")) >= 0) {
+    const block = buffer.slice(0, cut);
+    buffer = buffer.slice(cut + 2);
+    const event = block.match(/^event: (.*)$/m)?.[1];
+    const data = JSON.parse(block.match(/^data: (.*)$/m)?.[1] ?? "{}");
+    if (event === "response.delta") console.log(data.text);
+    if (event === "response.completed") console.log(data.response.sources);
+  }
+}</code></pre>
+      </section>
+
+      <!-- Response -->
+      <section class="doc" id="response">
+        <p class="doc-kicker mono">API</p>
+        <h2>The response</h2>
+        <p>The main fields of a JSON answer (and of <code>response.completed</code>):</p>
+        <pre class="code"><button class="copy" type="button">Copy</button><code>{
+  "id": "4975f8b8-…",
+  "type": "market",            // normal | research | github | onchain | market | combined
+  "answer": "USDG trades at about $1.00 … [1]",
+  "grounded": true,            // false: needed live data couldn't be retrieved
+  "sources": [
+    { "id": 1, "title": "…", "url": "https://…", "domain": "…",
+      "authority": "direct", "snippet": "…", "retrievedAt": "…" }
+  ],
+  "citations": { "used": [1], "invalid": [] },
+  "data": { "market.data": [ … ] },   // structured data for cards
+  "toolRuns": [ … ],                  // each source call: status and time
+  "model": { "provider": "openrouter", "model": "…", "fallbackUsed": false },
+  "timings": { "totalMs": 6400, "toolsMs": 2200, "llmMs": 4100 },
+  "warnings": []
+}</code></pre>
+      </section>
+
+      <!-- Other endpoints -->
+      <section class="doc" id="endpoints">
+        <p class="doc-kicker mono">API</p>
+        <h2>Other endpoints</h2>
+        <div class="endpoint-list">
+          <div><span class="method get">GET</span><code class="endpoint">/health</code><p>Whether each AI provider and source is set up (true/false only — never keys or settings).</p></div>
+          <div><span class="method get">GET</span><code class="endpoint">/models</code><p>The model choices you can pass as <code>model</code>.</p></div>
+          <div><span class="method get">GET</span><code class="endpoint">/api/pulse</code><p>The home page's live pulse: latest block, top pools and headlines. Cached for a minute; no AI involved.</p></div>
+        </div>
+        <pre class="code"><button class="copy" type="button">Copy</button><code>curl -s http://localhost:8787/health
+# {"status":"ok","providers":{"openrouter":true,…},"tools":{"tavily":true,…}}</code></pre>
+      </section>
+
+      <!-- Errors & limits -->
+      <section class="doc" id="errors">
+        <p class="doc-kicker mono">API</p>
+        <h2>Errors &amp; limits</h2>
+        <p>Errors are JSON: <code>{ "error": { "kind": "…", "message": "…" } }</code> — never stack traces or internal details.</p>
+        <div class="table-wrap">
+          <table class="doc-table">
+            <thead><tr><th>Status</th><th>Kind</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td><span class="code-badge c4">400</span></td><td><code>validation</code></td><td>Missing or too-long message, or invalid fields.</td></tr>
+              <tr><td><span class="code-badge c4">401</span></td><td><code>unauthorized</code></td><td>This server requires an access key.</td></tr>
+              <tr><td><span class="code-badge c4">413</span></td><td><code>validation</code></td><td>The request body is larger than 256 KB.</td></tr>
+              <tr><td><span class="code-badge c4">429</span></td><td><code>rate_limit</code></td><td>Too many requests — wait the seconds in the <code>Retry-After</code> header.</td></tr>
+              <tr><td><span class="code-badge c5">503</span></td><td>varies</td><td>No AI model could answer right now. Try again shortly.</td></tr>
+              <tr><td><span class="code-badge c5">504</span></td><td><code>timeout</code></td><td>The request passed its 120-second deadline.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>Limits on the public site</h3>
+        <div class="limit-grid">
+          <div><b>20</b><span>questions per minute per visitor</span></div>
+          <div><b>5</b><span>deep-research questions per minute</span></div>
+          <div><b>8,000</b><span>characters per message</span></div>
+          <div><b>120 s</b><span>maximum time per answer</span></div>
+        </div>
+        <p class="note">Each source and AI provider also has a daily budget, so a busy day can't run up unlimited costs. A self-hosted server can change these limits.</p>
+      </section>
+
+      <!-- Troubleshooting -->
+      <section class="doc" id="troubleshooting">
+        <p class="doc-kicker mono">HELP</p>
+        <h2>Troubleshooting</h2>
+        <div class="faq docs-faq">
+          <details><summary>"TILIK is busy right now"</summary><p>You've hit the per-minute limit. Wait a minute and ask again.</p></details>
+          <details><summary>"TILIK's AI models aren't available right now"</summary><p>Every AI provider failed or is at its daily budget. TILIK already tried each one once; try again in a moment.</p></details>
+          <details><summary>"That took too long"</summary><p>The answer passed the 120-second deadline — usually a large research question. Try a narrower question, or ask about fewer things at once.</p></details>
+          <details><summary>"Some live data couldn't be retrieved"</summary><p>A source was unreachable, so that part of the answer has no real-time facts. The steps list shows which source failed.</p></details>
+          <details><summary>Live chain data shows "unavailable"</summary><p>The public Robinhood Chain RPC isn't responding to the server. Market data and headlines are unaffected.</p></details>
+          <details><summary>The page looks outdated after an update</summary><p>Reload once with <kbd>Ctrl</kbd>+<kbd>F5</kbd> (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> on Mac).</p></details>
+          <details><summary>Is this financial advice?</summary><p>No. Market and on-chain data are shown as facts with their sources and time. Always do your own research.</p></details>
+        </div>
+        <div class="docs-end">
+          <p>Still stuck? TILIK can explain itself too.</p>
+          <a class="btn btn-primary" href="/#ask">Ask TILIK <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="docs-footer">
+    <a class="logo" href="/" aria-label="TILIK home"><svg class="logo-mark" aria-hidden="true"><use href="#tilik-mark" /></svg><span class="logo-word">TILIK</span></a>
+    <p>© 2026 TILIK · <a href="/">Home</a> · <a href="/health" target="_blank" rel="noopener">API status</a></p>
+  </footer>
+
+  <script type="module" src="/docs.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "feeds": [
+    { "name": "TechCrunch AI", "url": "https://techcrunch.com/category/artificial-intelligence/feed/", "category": "ai", "source": "TechCrunch" },
+    { "name": "The Verge AI", "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", "category": "ai", "source": "The Verge" },
+    { "name": "Hugging Face Blog", "url": "https://huggingface.co/blog/feed.xml", "category": "ai", "source": "Hugging Face" },
+    { "name": "OpenAI News", "url": "https://openai.com/news/rss.xml", "category": "ai", "source": "OpenAI" },
+
+    { "name": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index", "category": "technology", "source": "Ars Technica" },
+    { "name": "The Verge", "url": "https://www.theverge.com/rss/index.xml", "category": "technology", "source": "The Verge" },
+    { "name": "TechCrunch", "url": "https://techcrunch.com/feed/", "category": "technology", "source": "TechCrunch" },
+
+    { "name": "CoinDesk", "url": "https://www.coindesk.com/arc/outboundfeeds/rss/", "category": "crypto", "source": "CoinDesk" },
+    { "name": "Cointelegraph", "url": "https://cointelegraph.com/rss", "category": "crypto", "source": "Cointelegraph" },
+    { "name": "Decrypt", "url": "https://decrypt.co/feed", "category": "crypto", "source": "Decrypt" },
+    { "name": "The Block", "url": "https://www.theblock.co/rss.xml", "category": "crypto", "source": "The Block" },
+
+    { "name": "CNBC Top News", "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html", "category": "finance", "source": "CNBC" },
+    { "name": "MarketWatch Top Stories", "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories", "category": "finance", "source": "MarketWatch" },
+
+    { "name": "GitHub Blog", "url": "https://github.blog/feed/", "category": "developer", "source": "GitHub" },
+    { "name": "Hacker News Front Page", "url": "https://hnrss.org/frontpage", "category": "developer", "source": "Hacker News" },
+
+    { "name": "BBC News", "url": "https://feeds.bbci.co.uk/news/rss.xml", "category": "general", "source": "BBC" },
+    { "name": "NPR News", "url": "https://feeds.npr.org/1001/rss.xml", "category": "general", "source": "NPR" },
+    { "name": "The Guardian World", "url": "https://www.theguardian.com/world/rss", "category": "general", "source": "The Guardian" }
+  ]
+}

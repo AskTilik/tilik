@@ -1,0 +1,54 @@
+# Render Blueprint for TILIK (https://render.com/docs/blueprint-spec)
+# One Node web service: the API (/chat, /health) and the web app (/) from the same origin.
+# API keys are NOT in this file: Render asks for them when the Blueprint is created (sync: false)
+# and keeps them as encrypted environment variables. Never commit .env.
+services:
+  - type: web
+    name: tilik
+    runtime: node
+    region: singapore
+    plan: free
+    # devDependencies (TypeScript) are needed to build; NODE_ENV=production would otherwise skip them.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      # Render routes traffic to the service's port on all interfaces; PORT is provided by Render.
+      - key: HOST
+        value: 0.0.0.0
+      # Behind Render's proxy: per-visitor rate limits need the real client IP from X-Forwarded-For.
+      - key: TRUST_PROXY
+        value: "true"
+      - key: VEYRA_LOG_LEVEL
+        value: info
+      # Abuse/cost protection for a public site (see .env.example for every limit).
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: "20"
+      - key: RATE_LIMIT_HEAVY_MAX_REQUESTS
+        value: "5"
+      - key: OPENROUTER_DAILY_REQUEST_LIMIT
+        value: "200"
+      # Secrets: entered in the Render dashboard, never stored in the repo.
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_API_KEY_BACKUP
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: EXA_API_KEY
+        sync: false
+      - key: JINA_API_KEY
+        sync: false
+      - key: FIRECRAWL_API_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false

@@ -1,0 +1,15 @@
+{
+  "tiers": {
+    "fast": [
+      { "provider": "gemini", "model": "gemini-flash-lite-latest", "maxTokens": 1500 },
+      { "provider": "openrouter", "model": "openai/gpt-oss-120b", "maxTokens": 1500 }
+    ],
+    "reasoning": [
+      { "provider": "openrouter", "model": "deepseek/deepseek-v4-pro", "maxTokens": 4000 },
+      { "provider": "groq", "model": "openai/gpt-oss-120b", "maxTokens": 4000 }
+    ]
+  },
+  "intentTiers": {
+    "onchain": "reasoning"
+  }
+}
