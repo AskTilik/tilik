@@ -441,6 +441,15 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
   const TABLE_ROW = /^\s*\|.*\|?\s*$/;
   const TABLE_SEP = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
   const tableCells = (line) => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+  // Models often write <br> inside a cell for a line break: shown as a real break (never parsed as HTML).
+  const tableCell = (tag, text, sources) => {
+    const cell = el(tag);
+    text.split(/<br\s*\/?>/i).forEach((part, i) => {
+      if (i) cell.append(document.createElement("br"));
+      cell.append(inline(part.trim(), sources));
+    });
+    return cell;
+  };
   const mdTable = (rows, sources) => {
     const wrap = el("div", "md-table-wrap");
     const table = el("table", "md-table");
@@ -449,7 +458,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
     if (hasHead) {
       const thead = el("thead");
       const tr = el("tr");
-      for (const c of tableCells(rows[0])) { const th = el("th"); th.append(inline(c, sources)); tr.append(th); }
+      for (const c of tableCells(rows[0])) tr.append(tableCell("th", c, sources));
       thead.append(tr);
       table.append(thead);
     }
@@ -457,7 +466,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
     for (const row of body) {
       if (TABLE_SEP.test(row)) continue;
       const tr = el("tr");
-      for (const c of tableCells(row)) { const td = el("td"); td.append(inline(c, sources)); tr.append(td); }
+      for (const c of tableCells(row)) tr.append(tableCell("td", c, sources));
       tbody.append(tr);
     }
     table.append(tbody);
