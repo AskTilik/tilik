@@ -7,3 +7,4 @@ dist/
 # Local design references (third-party screen recording) — not part of the app
 v/
 refensi landing oage
+.vercel/

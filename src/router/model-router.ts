@@ -259,6 +259,9 @@ export class ModelRouter {
       let begun = false;
       try {
         for await (const event of c.provider.stream({ ...this.request(c, messages), ...(signal ? { signal } : {}) })) {
+          // Empty chunks (some providers open the stream with one, then stall) don't count as starting:
+          // until real text arrives, a stall or error can still fall back to the next model.
+          if (!begun && event.type === "delta" && !event.text) continue;
           if (!begun) {
             begun = true;
             attempts.push({ provider: c.provider.id, model: c.model, ok: true, ms: Date.now() - started });

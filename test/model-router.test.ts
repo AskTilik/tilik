@@ -103,6 +103,24 @@ describe("ModelRouter", () => {
     assert.equal(model, "b");
     assert.equal(text.trim(), "hello world");
   });
+
+  it("an empty opening chunk followed by a stall still falls back (no text was shown yet)", async () => {
+    class StallsAfterEmptyChunk extends FakeProvider {
+      override async *stream() {
+        yield { type: "delta" as const, text: "" };
+        throw new VeyraError("timeout", "a", "Timed out after 60000ms");
+      }
+    }
+    const r = router([new StallsAfterEmptyChunk("a"), new FakeProvider("b", { reply: "hello world" })]);
+    let text = "";
+    let model = "";
+    for await (const ev of r.stream(r.plan("fast", { kind: "auto" }), messages)) {
+      if (ev.type === "model") model = ev.provider;
+      if (ev.type === "delta") text += ev.text;
+    }
+    assert.equal(model, "b");
+    assert.equal(text.trim(), "hello world");
+  });
 });
 
 describe("OpenRouter-only fallback (default routing)", () => {

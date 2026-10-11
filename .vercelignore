@@ -1,0 +1,11 @@
+# Never uploaded to Vercel: secrets, local media, build output and dependencies (Vercel installs and builds itself).
+.env
+.env.*
+!.env.example
+v/
+refensi landing oage
+node_modules/
+dist/
+.git/
+.vercel/
+*.log
