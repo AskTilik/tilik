@@ -49,6 +49,15 @@ describe("landing page (static web/)", () => {
     assert.equal((await a.request("/chat", { method: "POST", body: JSON.stringify({ message: "hi" }) })).status, 401);
   });
 
+  it("serves the crawler page at /crawl with its assets", async () => {
+    const a = app();
+    const page = await a.request("/crawl");
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /<title>TILIK Crawler<\/title>/);
+    assert.equal((await a.request("/crawl.js")).status, 200);
+    assert.equal((await a.request("/crawl.css")).status, 200);
+  });
+
   it("serves the docs page at /docs with its assets", async () => {
     const a = app();
     const docs = await a.request("/docs");
@@ -62,7 +71,7 @@ describe("landing page (static web/)", () => {
 
   it("the frontend bundle contains no secrets or server configuration", async () => {
     const a = app();
-    for (const path of ["/", "/app.js", "/styles.css", "/conversations.js", "/docs", "/docs.js", "/docs.css"]) {
+    for (const path of ["/", "/app.js", "/styles.css", "/conversations.js", "/docs", "/docs.js", "/docs.css", "/crawl", "/crawl.js", "/crawl.css"]) {
       const text = await (await a.request(path)).text();
       assert.ok(!text.includes("gsk_supersecret"), path);
       assert.doesNotMatch(text, /process\.env|_API_KEY|GITHUB_TOKEN|You are TILIK/, path);

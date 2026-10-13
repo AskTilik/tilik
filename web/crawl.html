@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TILIK Crawler</title>
+  <meta name="description" content="Watch TILIK crawl a question: every source it reads, links and flags, live." />
+  <meta name="theme-color" content="#120d0b" />
+  <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/crawl.css" />
+</head>
+<body>
+  <header class="top">
+    <p class="stats" id="stats" aria-live="off"></p>
+    <a class="home" href="/">asktilik.com</a>
+  </header>
+  <nav class="tabs" id="tabs" aria-label="Sections"></nav>
+
+  <main class="stage" id="stage">
+    <canvas id="world" aria-label="TILIK crawler reading a question, source by source"></canvas>
+    <div class="title" id="title">
+      <h1 id="title-name"></h1>
+      <p id="title-sub"></p>
+    </div>
+  </main>
+
+  <section class="dash" aria-label="Crawler dashboard">
+    <article class="panel">
+      <h2>Crawl log <b id="wps" class="ok"></b></h2>
+      <ol class="log" id="log"></ol>
+    </article>
+    <article class="panel">
+      <h2>Sections <b id="sec-count"></b></h2>
+      <ul class="sections" id="sections"></ul>
+      <p class="foot">words → kinds → links</p>
+    </article>
+    <article class="panel">
+      <h2>Coverage radar <b class="ok">live</b></h2>
+      <canvas class="radar" id="radar"></canvas>
+      <ul class="kinds" id="kinds"></ul>
+    </article>
+    <article class="panel">
+      <h2>Word heat <b class="ok" id="heat-total"></b></h2>
+      <div class="heat" id="heat"></div>
+      <p class="wpm-label">words per minute</p>
+      <p class="wpm" id="wpm">0/m</p>
+      <dl class="tally" id="tally"></dl>
+    </article>
+    <article class="panel">
+      <h2>Confidence <b class="ok">live</b></h2>
+      <canvas class="wave" id="wave"></canvas>
+      <canvas class="gauge" id="gauge"></canvas>
+      <p class="flags" id="flags"></p>
+      <p class="foot">cite, don't guess</p>
+    </article>
+    <article class="panel">
+      <h2>tilik.ts <b class="pink" id="lps"></b></h2>
+      <pre class="code" id="code"></pre>
+    </article>
+  </section>
+
+  <script src="/crawl.js" defer></script>
+</body>
+</html>
