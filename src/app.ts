@@ -70,11 +70,6 @@ export function createApp(container: Container): Hono<{ Variables: AppVariables 
     c.header("Cache-Control", "no-cache");
     return c.html(await readFile(join(webRoot, "docs.html"), "utf8"));
   });
-  // Crawler visualization page.
-  app.get("/crawl", async (c) => {
-    c.header("Cache-Control", "no-cache");
-    return c.html(await readFile(join(webRoot, "crawl.html"), "utf8"));
-  });
   // The web app is small and changes with every release: browsers keep a copy but must revalidate it
   // (cheap 304 via Last-Modified), so visitors never get a stale page after an update.
   app.use("/*", async (c, next) => {
