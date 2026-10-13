@@ -1,5 +1,5 @@
 // A procedural spider (cyan legs, pink joints, blue body) that crawls over the landing page.
-// Mouse: it follows the cursor. Touch / no cursor: it wanders. Purely decorative: never takes clicks.
+// It roams on its own (never follows the cursor or a finger). Purely decorative: never takes clicks.
 (() => {
   "use strict";
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -45,16 +45,12 @@
   };
   for (const leg of legs) leg.foot = idealOf(leg);
 
-  let mouse = null;
-  addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") mouse = { x: e.clientX, y: e.clientY }; }, { passive: true });
-  document.documentElement.addEventListener("mouseleave", () => { mouse = null; });
   let target = { x: body.x, y: body.y };
   let nextWander = 0;
 
   const update = (t, dt) => {
-    // Where to go: the cursor, or a new random spot every few seconds.
-    if (mouse) target = mouse;
-    else if (t > nextWander || dist(body, target) < 40) {
+    // Where to go: a new random spot every few seconds, or as soon as it gets there.
+    if (t > nextWander || dist(body, target) < 40) {
       target = { x: 90 + Math.random() * Math.max(1, W - 180), y: 130 + Math.random() * Math.max(1, H - 220) };
       nextWander = t + 4 + Math.random() * 4;
     }
@@ -63,7 +59,7 @@
     turn = Math.atan2(Math.sin(turn), Math.cos(turn));
     body.a += Math.max(-3.2 * dt, Math.min(3.2 * dt, turn));
     const away = dist(body, target);
-    const desired = away > 70 * S ? Math.min(210 * S, away * 1.4) * Math.max(0.2, Math.cos(turn)) : 0;
+    const desired = away > 25 * S ? Math.min(210 * S, away * 1.4) * Math.max(0.2, Math.cos(turn)) : 0;
     body.speed += (desired - body.speed) * Math.min(1, dt * 4);
     const f = dir(body.a);
     body.x += f.x * body.speed * dt;
