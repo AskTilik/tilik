@@ -599,7 +599,11 @@ button { font: inherit; color: inherit; }
   cursor: pointer;
 }
 .footer-cols a:hover, .footer-cols button:hover { color: var(--accent); }
-.copyright { margin: 40px 0 0; padding-top: 30px; border-top: 1px solid #262626; text-align: center; font-size: 13px; color: var(--dim); }
+.social { display: flex; justify-content: center; margin: 40px 0 0; }
+.social-x { display: inline-flex; align-items: center; gap: 10px; padding: 9px 16px; border: 1px solid #262626; border-radius: 999px; color: var(--text); font-size: 14px; font-weight: 600; text-decoration: none; transition: border-color 0.2s, background 0.2s; }
+.social-x svg { width: 16px; height: 16px; fill: currentColor; }
+.social-x:hover { border-color: var(--accent); background: rgba(255, 255, 255, 0.04); }
+.copyright { margin: 20px 0 0; padding-top: 30px; border-top: 1px solid #262626; text-align: center; font-size: 13px; color: var(--dim); }
 
 /* ── Chat ─────────────────────────────────────────── */
 .chat { position: fixed; inset: 0; z-index: 50; display: flex; background: #000; }
