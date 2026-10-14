@@ -806,16 +806,17 @@ a.lk-addr:hover { color: var(--accent); }
 .lk-tag { padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; color: var(--dim); font-size: 12px; }
 .lk-tag.ok { color: #7cff6b; border-color: rgba(124, 255, 107, 0.4); }
 .lk-warn { margin: 0; padding: 10px 14px; border-radius: 10px; background: rgba(255, 77, 141, 0.12); color: #ff8fb3; font-size: 14px; }
-.lk-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.lk-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
 .lk-stat { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; min-width: 0; }
 .lk-label { color: var(--dim); font: 500 11px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
-.lk-value { font-size: 20px; overflow-wrap: anywhere; }
+.lk-value { font-size: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lk-sub { color: var(--dim); font-size: 13px; overflow-wrap: anywhere; }
 .lk-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
 .lk-list h4 { margin: 0 0 8px; font-size: 14px; }
 .lk-list ul { margin: 0; padding: 0; list-style: none; }
 .lk-list li { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 13px; }
 .lk-list li > :nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lk-list li.lk-tx { grid-template-columns: auto minmax(0, 1fr) auto auto auto; }
 .lk-empty { margin: 0; color: var(--dim); font-size: 13px; }
 .lk-dir { font: 700 12px var(--mono); color: var(--dim); white-space: nowrap; }
 .lk-dir.in { color: #7cff6b; }
@@ -834,4 +835,5 @@ a.lk-time:hover, a.lk-strong:hover { color: var(--accent); }
   .lk-stat { padding: 12px; }
   .lk-list li { grid-template-columns: auto 1fr auto; }
   .lk-list li > .lk-dim { display: none; }
+  .lk-list li.lk-tx { grid-template-columns: auto minmax(0, 1fr) auto auto; }
 }

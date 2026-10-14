@@ -459,7 +459,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       if (p.balance) stats.append(stat("Balance", p.balance.value, p.balance.symbol));
       if (typeof p.sent === "number") stats.append(stat("Transactions sent", num(p.sent)));
       if (p.counters && p.counters.transactions !== undefined) stats.append(stat("All transactions", num(p.counters.transactions)));
-      if (p.counters && p.counters.tokenTransfers !== undefined) stats.append(stat("Token transfers", num(p.counters.tokenTransfers)));
+      if (p.kind !== "token" && p.counters && p.counters.tokenTransfers !== undefined) stats.append(stat("Token transfers", num(p.counters.tokenTransfers)));
       card.append(stats);
       if (p.history && p.history.available) {
         const lists = el("div", "lk-lists");
@@ -479,7 +479,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
           return li;
         }));
         lists.append(listBlock("Recent transactions", p.transactions || [], (t) => {
-          const li = el("li");
+          const li = el("li", "lk-tx");
           li.append(el("span", "lk-dir " + t.direction, arrow[t.direction]));
           li.append(el("span", "lk-strong", t.failed ? (t.method || "call") + " · failed" : t.method || "transfer"));
           li.append(el("span", "lk-num mono", t.value + " ETH"));
