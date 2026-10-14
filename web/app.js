@@ -474,7 +474,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
           const li = el("li");
           li.append(el("span", "lk-dir " + t.direction, p.kind === "token" ? "⇄" : arrow[t.direction]));
           li.append(el("span", "lk-num mono", ((t.amount || "?") + " " + (t.token.symbol || "")).trim()));
-          li.append(el("span", "lk-dim mono", t.counterparty ? shortA(t.counterparty) : ""));
+          li.append(el("span", "lk-dim mono", t.counterparty ? shortA(t.counterparty) : t.from && t.to ? shortA(t.from) + " → " + shortA(t.to) : ""));
           li.append(maybeLink(t.url, t.time ? ago(t.time) : "view", "lk-time"));
           return li;
         }));

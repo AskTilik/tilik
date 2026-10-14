@@ -45,6 +45,9 @@ export interface AddressTransfer {
   amount?: string;
   direction: "in" | "out" | "self";
   counterparty?: string;
+  /** Token pages: who sent and who received (a token contract is rarely a party itself). */
+  from?: string;
+  to?: string;
   url?: string;
 }
 export interface AddressHolding {
@@ -204,6 +207,7 @@ export function createAddressLookup(env: Env, logger: Logger, deps: AddressDeps 
         ...(amountOf(t.total?.value, dec) ? { amount: amountOf(t.total?.value, dec)! } : {}),
         direction: isToken ? "self" : dir(t.from.hash, t.to.hash),
         ...(o ? { counterparty: toChecksumAddress(o.hash) } : {}),
+        ...(isToken ? { from: toChecksumAddress(t.from.hash), to: toChecksumAddress(t.to.hash) } : {}),
         ...(ctx.links.tx(t.transaction_hash) ? { url: ctx.links.tx(t.transaction_hash)! } : {}),
       };
     });
