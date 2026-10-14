@@ -833,6 +833,7 @@ a.lk-time:hover, a.lk-strong:hover { color: var(--accent); }
   .lookup-input { flex: none; }
   .lk-value { font-size: 15px; overflow-wrap: normal; white-space: nowrap; }
   .lk-stat { padding: 12px; }
+  .lk-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lk-list li { grid-template-columns: auto 1fr auto; }
   .lk-list li > .lk-dim { display: none; }
   .lk-list li.lk-tx { grid-template-columns: auto minmax(0, 1fr) auto auto; }
