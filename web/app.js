@@ -414,6 +414,118 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
     return m < 60 ? `${Math.max(1, m)}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`;
   };
 
+  // ── Address lookup: /api/address/:address (chain RPC + explorer; no model) ──
+  const lookupForm = document.getElementById("lookup-form");
+  if (lookupForm) {
+    const lookupInput = document.getElementById("lookup-input");
+    const lookupOut = document.getElementById("lookup-result");
+    const shortA = (a) => (a ? a.slice(0, 6) + "…" + a.slice(-4) : "");
+    const KIND = { wallet: "Wallet", contract: "Smart contract", token: "Token" };
+    const stat = (label, value, sub) => {
+      const d = el("div", "lk-stat");
+      d.append(el("span", "lk-label", label), el("b", "lk-value", value));
+      if (sub) d.append(el("span", "lk-sub", sub));
+      return d;
+    };
+    const maybeLink = (href, text, className) => (safeUrl(href) ? link(safeUrl(href), text, className) : el("span", className, text));
+    const arrow = { in: "↓ in", out: "↑ out", self: "↻ self" };
+    const listBlock = (title, items, row) => {
+      const box = el("div", "lk-list");
+      box.append(el("h4", "", title));
+      if (!items.length) box.append(el("p", "lk-empty", "Nothing recent."));
+      const ul = el("ul");
+      for (const it of items) ul.append(row(it));
+      box.append(ul);
+      return box;
+    };
+    const render = (p) => {
+      lookupOut.replaceChildren();
+      const card = el("article", "lk-card");
+      const head = el("div", "lk-head");
+      head.append(el("span", "lk-kind " + p.kind, KIND[p.kind] || p.kind));
+      head.append(maybeLink(p.url, p.address, "lk-addr mono"));
+      if (p.label) head.append(el("span", "lk-tag", p.label));
+      if (p.verified === true) head.append(el("span", "lk-tag ok", "Verified source"));
+      if (p.verified === false) head.append(el("span", "lk-tag", "Unverified source"));
+      card.append(head);
+      if (p.scam) card.append(el("p", "lk-warn", "⚠ The explorer flags this address as a scam. Be careful."));
+      const stats = el("div", "lk-stats");
+      if (p.token) {
+        stats.append(stat("Token", p.token.symbol || "—", p.token.name));
+        if (p.token.totalSupply) stats.append(stat("Total supply", p.token.totalSupply, p.token.symbol));
+        if (typeof p.token.holders === "number") stats.append(stat("Holders", num(p.token.holders)));
+        if (typeof p.token.decimals === "number") stats.append(stat("Decimals", String(p.token.decimals)));
+      }
+      if (p.balance) stats.append(stat("Balance", p.balance.value, p.balance.symbol));
+      if (typeof p.sent === "number") stats.append(stat("Transactions sent", num(p.sent)));
+      if (p.counters && p.counters.transactions !== undefined) stats.append(stat("All transactions", num(p.counters.transactions)));
+      if (p.counters && p.counters.tokenTransfers !== undefined) stats.append(stat("Token transfers", num(p.counters.tokenTransfers)));
+      card.append(stats);
+      if (p.history && p.history.available) {
+        const lists = el("div", "lk-lists");
+        if (p.holdings) {
+          lists.append(listBlock("Token holdings", p.holdings, (h) => {
+            const li = el("li");
+            li.append(maybeLink(h.url, h.symbol || shortA(h.address), "lk-strong"), el("span", "lk-dim", h.name || ""), el("span", "lk-num mono", h.balance || "—"));
+            return li;
+          }));
+        }
+        lists.append(listBlock(p.kind === "token" ? "Latest transfers" : "Recent token transfers", p.transfers || [], (t) => {
+          const li = el("li");
+          li.append(el("span", "lk-dir " + t.direction, p.kind === "token" ? "⇄" : arrow[t.direction]));
+          li.append(el("span", "lk-num mono", ((t.amount || "?") + " " + (t.token.symbol || "")).trim()));
+          li.append(el("span", "lk-dim mono", t.counterparty ? shortA(t.counterparty) : ""));
+          li.append(maybeLink(t.url, t.time ? ago(t.time) : "view", "lk-time"));
+          return li;
+        }));
+        lists.append(listBlock("Recent transactions", p.transactions || [], (t) => {
+          const li = el("li");
+          li.append(el("span", "lk-dir " + t.direction, arrow[t.direction]));
+          li.append(el("span", "lk-strong", t.failed ? (t.method || "call") + " · failed" : t.method || "transfer"));
+          li.append(el("span", "lk-num mono", t.value + " ETH"));
+          li.append(el("span", "lk-dim mono", t.counterpartyLabel || (t.counterparty ? shortA(t.counterparty) : "")));
+          li.append(maybeLink(t.url, t.time ? ago(t.time) : "view", "lk-time"));
+          return li;
+        }));
+        card.append(lists);
+      } else if (p.history && p.history.reason) {
+        card.append(el("p", "lk-note", "History: " + p.history.reason + " Ask TILIK below for a deeper look."));
+      }
+      const actions = el("div", "lk-actions");
+      const ask = el("button", "btn btn-primary", "Ask TILIK about this address");
+      ask.type = "button";
+      ask.addEventListener("click", () => openChat({ question: "Analyze " + p.address + " on Robinhood Chain" }));
+      actions.append(ask);
+      if (safeUrl(p.url)) actions.append(link(safeUrl(p.url), "Open in explorer ↗", "btn btn-ghost"));
+      card.append(actions);
+      card.append(el("p", "lk-foot mono", p.chain.name + " · chain " + p.chain.chainId + " · read " + new Date(p.generatedAt).toLocaleTimeString()));
+      lookupOut.append(card);
+    };
+    const show = (cls, text) => { lookupOut.replaceChildren(el("p", cls, text)); };
+    let busy = false;
+    lookupForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const value = lookupInput.value.trim();
+      if (!/^0x[0-9a-fA-F]{40}$/.test(value)) return show("lk-error", "Enter a full address: 0x followed by 40 characters (0-9, a-f).");
+      if (busy) return;
+      busy = true;
+      show("lk-loading", "Reading Robinhood Chain…");
+      try {
+        const res = await fetch("/api/address/" + encodeURIComponent(value), { headers: { Accept: "application/json" } });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) show("lk-error", res.status === 429 ? "Too many lookups. Please wait a minute." : (body && body.error && body.error.message) || "Robinhood Chain could not be read right now.");
+        else render(body);
+      } catch {
+        show("lk-error", "Can't reach TILIK. Check your connection and try again.");
+      } finally {
+        busy = false;
+      }
+    });
+    for (const b of document.querySelectorAll("[data-lookup]")) {
+      b.addEventListener("click", () => { lookupInput.value = b.dataset.lookup; lookupForm.requestSubmit(); });
+    }
+  }
+
   // ── Answer text: a tiny, safe markdown subset (no HTML ever) with clickable [n] citations ──
   const inline = (text, sources) => {
     const frag = document.createDocumentFragment();

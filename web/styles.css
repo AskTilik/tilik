@@ -783,3 +783,55 @@ a.card-title:hover { color: var(--accent); }
 .menu-ca b { color: var(--accent); font-weight: 500; }
 .menu-ca .ca-done:not(:empty) + .menu-ca-hint { display: none; }
 .menu-ca-hint { color: var(--dim); font-size: 13px; }
+
+/* Address lookup */
+.new-badge { display: inline-block; margin-left: 8px; padding: 2px 7px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font: 700 10px var(--mono); letter-spacing: 0.08em; vertical-align: middle; }
+.lookup-form { display: flex; gap: 10px; max-width: 760px; }
+.lookup-input { flex: 1; min-width: 0; height: 48px; padding: 0 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 15px; }
+.lookup-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.lookup-form .btn { flex: none; height: 48px; }
+.lookup-try { margin: 12px 0 0; color: var(--dim); font-size: 14px; }
+.chip-btn { margin-left: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--accent); font-size: 13px; cursor: pointer; }
+.chip-btn:hover { border-color: var(--accent); }
+.lookup-result { margin-top: 22px; }
+.lk-loading, .lk-error, .lk-note { margin: 0; color: var(--dim); font-size: 14px; }
+.lk-error { color: #ff6b8a; }
+.lk-card { display: flex; flex-direction: column; gap: 18px; padding: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+.lk-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.lk-kind { padding: 4px 10px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font: 700 12px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
+.lk-kind.contract { background: #38d6f5; }
+.lk-kind.wallet { background: #7cff6b; }
+.lk-addr { min-width: 0; overflow-wrap: anywhere; color: var(--text); font-size: 14px; }
+a.lk-addr:hover { color: var(--accent); }
+.lk-tag { padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; color: var(--dim); font-size: 12px; }
+.lk-tag.ok { color: #7cff6b; border-color: rgba(124, 255, 107, 0.4); }
+.lk-warn { margin: 0; padding: 10px 14px; border-radius: 10px; background: rgba(255, 77, 141, 0.12); color: #ff8fb3; font-size: 14px; }
+.lk-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.lk-stat { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; min-width: 0; }
+.lk-label { color: var(--dim); font: 500 11px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
+.lk-value { font-size: 20px; overflow-wrap: anywhere; }
+.lk-sub { color: var(--dim); font-size: 13px; overflow-wrap: anywhere; }
+.lk-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.lk-list h4 { margin: 0 0 8px; font-size: 14px; }
+.lk-list ul { margin: 0; padding: 0; list-style: none; }
+.lk-list li { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.lk-list li > :nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lk-empty { margin: 0; color: var(--dim); font-size: 13px; }
+.lk-dir { font: 700 12px var(--mono); color: var(--dim); white-space: nowrap; }
+.lk-dir.in { color: #7cff6b; }
+.lk-dir.out { color: #ff8fb3; }
+.lk-strong { font-weight: 600; color: var(--text); }
+.lk-dim { color: var(--dim); }
+.lk-num { white-space: nowrap; }
+.lk-time { color: var(--dim); white-space: nowrap; }
+a.lk-time:hover, a.lk-strong:hover { color: var(--accent); }
+.lk-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.lk-foot { margin: 0; color: var(--dim); font-size: 12px; }
+@media (max-width: 560px) {
+  .lookup-form { flex-direction: column; }
+  .lookup-input { flex: none; }
+  .lk-value { font-size: 15px; overflow-wrap: normal; white-space: nowrap; }
+  .lk-stat { padding: 12px; }
+  .lk-list li { grid-template-columns: auto 1fr auto; }
+  .lk-list li > .lk-dim { display: none; }
+}

@@ -8,6 +8,7 @@ import { bodyLimit } from "hono/body-limit";
 import { chatRoutes } from "./api/chat.js";
 import { errorResponse } from "./api/errors.js";
 import { clientKey, corsPolicy, requestLog, securityHeaders, tooManyRequests, type AppVariables } from "./api/http-guards.js";
+import { addressRoutes } from "./api/address.js";
 import { pulseRoutes } from "./api/pulse.js";
 import { systemRoutes } from "./api/system.js";
 import { rateLimitEnabled } from "./config/env.js";
@@ -57,6 +58,7 @@ export function createApp(container: Container): Hono<{ Variables: AppVariables 
 
   app.route("/", systemRoutes(container));
   app.route("/", pulseRoutes(env, logger));
+  app.route("/", addressRoutes(env, logger, clientLimiter));
   app.route("/", chatRoutes(container));
   // Landing page (static files in /web). Same path from src/ (dev) and dist/ (build).
   const webRoot = fileURLToPath(new URL("../web", import.meta.url));
