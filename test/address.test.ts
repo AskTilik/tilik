@@ -27,6 +27,12 @@ function rpc(body: any) {
       return ok(hex(4663));
     case "eth_getBalance":
       return ok(hex(2_250_000_000_000_000_000n));
+    case "eth_getTransactionByHash":
+      return ok(params[0] === TX ? { hash: TX, blockNumber: hex(100), from: WALLET.toLowerCase(), to: OTHER.toLowerCase(), value: hex(10_000_000_000_000_000n), nonce: "0x1", gas: hex(90_000), gasPrice: hex(1_000_000), input: "0x39ecce49", type: "0x2" } : null);
+    case "eth_getTransactionReceipt":
+      return ok(params[0] === TX ? { status: "0x1", gasUsed: hex(60_000), effectiveGasPrice: hex(1_000_000_000), contractAddress: null, logs: [] } : null);
+    case "eth_getBlockByNumber":
+      return ok({ number: hex(100), hash: `0x${"0".repeat(64)}`, timestamp: hex(1_760_000_000), gasUsed: "0x0", gasLimit: "0x1", transactions: [] });
     case "eth_getTransactionCount":
       return ok(hex(42));
     case "eth_getCode":
@@ -57,6 +63,8 @@ function explorer(path: string): Response {
   if (p === `/addresses/${w}/token-transfers`)
     return jsonResponse({ items: [{ transaction_hash: TX, timestamp: "2026-10-06T07:59:00Z", from: ref(OTHER), to: ref(WALLET), token: bsToken, total: { value: "250000000000000000000", decimals: "18" }, type: "token_transfer" }] });
   if (p === `/addresses/${w}/tokens`) return jsonResponse({ items: [{ token: bsToken, value: "42000000000000000000" }] });
+  if (p === `/transactions/${TX}`) return jsonResponse({ hash: TX, block_number: 100, timestamp: "2026-10-14T21:47:38Z", from: ref(WALLET), to: ref(OTHER, { name: "PonsRouter", is_contract: true }), value: "10000000000000000", status: "ok", method: "buy", fee: { value: "60000000000000" } });
+  if (p === `/transactions/${TX}/token-transfers`) return jsonResponse({ items: [{ transaction_hash: TX, timestamp: null, from: ref(OTHER), to: ref(WALLET), token: bsToken, total: { value: "1692561430800000000000000", decimals: "18" }, type: "token_transfer" }] });
   return new Response(JSON.stringify({ message: "Not found" }), { status: 404 });
 }
 
@@ -128,7 +136,7 @@ describe("address lookup API", () => {
   it("limits lookups per client", async () => {
     const get = setup({ ROBINHOOD_EXPLORER_API_URL: "none", RATE_LIMIT_ENABLED: "true" });
     let last = 200;
-    for (let i = 0; i < 16; i++) last = (await get(WALLET)).status;
+    for (let i = 0; i < 21; i++) last = (await get(WALLET)).status;
     assert.equal(last, 429);
   });
 
@@ -140,6 +148,33 @@ describe("address lookup API", () => {
     const body: any = await res.json();
     assert.match(body.error.message, /could not be read/);
     assert.doesNotMatch(JSON.stringify(body), /rpc\.mainnet|503/);
+  });
+
+  it("describes a transaction: status, value, fee, parties and token transfers", async () => {
+    setup({ ROBINHOOD_EXPLORER_API_URL: BS });
+    const app = createApp(createContainer(testEnv({ ONCHAIN_ENABLED: "true", ONCHAIN_RPC_RETRIES: "0", ROBINHOOD_EXPLORER_API_URL: BS, ROBINHOOD_EXPLORER_URL: "https://explorer.example" })));
+    const r = await app.request(`/api/tx/${TX}`);
+    assert.equal(r.status, 200);
+    const body: any = await r.json();
+    assert.equal(body.status, "success");
+    assert.equal(body.block, 100);
+    assert.equal(body.time, "2026-10-14T21:47:38Z");
+    assert.deepEqual(body.value, { value: "0.01", symbol: "ETH" });
+    assert.deepEqual(body.fee, { value: "0.00006", symbol: "ETH" });
+    assert.equal(body.from, WALLET);
+    assert.equal(body.to, OTHER);
+    assert.equal(body.toLabel, "PonsRouter");
+    assert.equal(body.method, "buy");
+    assert.equal(body.transfers[0].amount, "1,692,561.4308");
+    assert.equal(body.transfers[0].token.symbol, "TILIK");
+    assert.equal(body.url, `https://explorer.example/tx/${TX}`);
+  });
+
+  it("answers 404 for an unknown transaction and 400 for a malformed hash", async () => {
+    setup({ ROBINHOOD_EXPLORER_API_URL: "none" });
+    const app = createApp(createContainer(testEnv({ ONCHAIN_ENABLED: "true", ONCHAIN_RPC_RETRIES: "0", ROBINHOOD_EXPLORER_API_URL: "none" })));
+    assert.equal((await app.request(`/api/tx/0x${"12".repeat(32)}`)).status, 404);
+    assert.equal((await app.request("/api/tx/0x1234")).status, 400);
   });
 
   it("is off when on-chain data is disabled", async () => {

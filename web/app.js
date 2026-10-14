@@ -414,11 +414,13 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
     return m < 60 ? `${Math.max(1, m)}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`;
   };
 
-  // ── Address lookup: /api/address/:address (chain RPC + explorer; no model) ──
+  // ── Address & transaction lookup: /api/address/:address and /api/tx/:hash (chain RPC + explorer; no model) ──
+  // Results are shareable: the URL becomes /?address=0x… or /?tx=0x…, and opening such a link runs the lookup.
   const lookupForm = document.getElementById("lookup-form");
   if (lookupForm) {
     const lookupInput = document.getElementById("lookup-input");
     const lookupOut = document.getElementById("lookup-result");
+    const ADDR = /^0x[0-9a-fA-F]{40}$/, HASH = /^0x[0-9a-fA-F]{64}$/;
     const shortA = (a) => (a ? a.slice(0, 6) + "…" + a.slice(-4) : "");
     const KIND = { wallet: "Wallet", contract: "Smart contract", token: "Token" };
     const stat = (label, value, sub) => {
@@ -428,6 +430,14 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       return d;
     };
     const maybeLink = (href, text, className) => (safeUrl(href) ? link(safeUrl(href), text, className) : el("span", className, text));
+    // An address inside a result: click to look it up here.
+    const addrBtn = (a, label) => {
+      const b = el("button", "lk-addr-btn mono", label || shortA(a));
+      b.type = "button";
+      b.title = a;
+      b.addEventListener("click", () => run(a));
+      return b;
+    };
     const arrow = { in: "↓ in", out: "↑ out", self: "↻ self" };
     const listBlock = (title, items, row) => {
       const box = el("div", "lk-list");
@@ -438,8 +448,26 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       box.append(ul);
       return box;
     };
-    const render = (p) => {
-      lookupOut.replaceChildren();
+    const shareUrl = (kind, value) => location.origin + "/?" + kind + "=" + value;
+    const actionsFor = (ask, explorerUrl, kind, value) => {
+      const actions = el("div", "lk-actions");
+      const askBtn = el("button", "btn btn-primary", ask.label);
+      askBtn.type = "button";
+      askBtn.addEventListener("click", () => openChat({ question: ask.question }));
+      actions.append(askBtn);
+      const copy = el("button", "btn btn-ghost", "Copy link");
+      copy.type = "button";
+      copy.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(shareUrl(kind, value)); copy.textContent = "Link copied ✓"; } catch { copy.textContent = "Copy failed"; }
+        setTimeout(() => { copy.textContent = "Copy link"; }, 1800);
+      });
+      actions.append(copy);
+      if (safeUrl(explorerUrl)) actions.append(link(safeUrl(explorerUrl), "Open in explorer ↗", "btn btn-ghost"));
+      return actions;
+    };
+    const foot = (chain, at) => el("p", "lk-foot mono", chain.name + " · chain " + chain.chainId + " · read " + new Date(at).toLocaleTimeString());
+
+    const renderAddress = (p) => {
       const card = el("article", "lk-card");
       const head = el("div", "lk-head");
       head.append(el("span", "lk-kind " + p.kind, KIND[p.kind] || p.kind));
@@ -466,7 +494,9 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
         if (p.holdings) {
           lists.append(listBlock("Token holdings", p.holdings, (h) => {
             const li = el("li");
-            li.append(maybeLink(h.url, h.symbol || shortA(h.address), "lk-strong"), el("span", "lk-dim", h.name || ""), el("span", "lk-num mono", h.balance || "—"));
+            const sym = addrBtn(h.address, h.symbol || shortA(h.address));
+            sym.classList.add("lk-strong");
+            li.append(sym, el("span", "lk-dim", h.name || ""), el("span", "lk-num mono", h.balance || "—"));
             return li;
           }));
         }
@@ -474,8 +504,13 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
           const li = el("li");
           li.append(el("span", "lk-dir " + t.direction, p.kind === "token" ? "⇄" : arrow[t.direction]));
           li.append(el("span", "lk-num mono", ((t.amount || "?") + " " + (t.token.symbol || "")).trim()));
-          li.append(el("span", "lk-dim mono", t.counterparty ? shortA(t.counterparty) : t.from && t.to ? shortA(t.from) + " → " + shortA(t.to) : ""));
-          li.append(maybeLink(t.url, t.time ? ago(t.time) : "view", "lk-time"));
+          const who = el("span", "lk-dim mono");
+          if (t.counterparty) who.append(addrBtn(t.counterparty));
+          else if (t.from && t.to) who.append(addrBtn(t.from), " → ", addrBtn(t.to));
+          li.append(who);
+          const when = addrBtn(t.hash, t.time ? ago(t.time) : "view");
+          when.className = "lk-time lk-addr-btn";
+          li.append(when);
           return li;
         }));
         lists.append(listBlock("Recent transactions", p.transactions || [], (t) => {
@@ -483,46 +518,114 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
           li.append(el("span", "lk-dir " + t.direction, arrow[t.direction]));
           li.append(el("span", "lk-strong", t.failed ? (t.method || "call") + " · failed" : t.method || "transfer"));
           li.append(el("span", "lk-num mono", t.value + " ETH"));
-          li.append(el("span", "lk-dim mono", t.counterpartyLabel || (t.counterparty ? shortA(t.counterparty) : "")));
-          li.append(maybeLink(t.url, t.time ? ago(t.time) : "view", "lk-time"));
+          const who = el("span", "lk-dim mono");
+          if (t.counterparty) who.append(addrBtn(t.counterparty, t.counterpartyLabel || shortA(t.counterparty)));
+          li.append(who);
+          const when = addrBtn(t.hash, t.time ? ago(t.time) : "view");
+          when.className = "lk-time lk-addr-btn";
+          li.append(when);
           return li;
         }));
         card.append(lists);
       } else if (p.history && p.history.reason) {
         card.append(el("p", "lk-note", "History: " + p.history.reason + " Ask TILIK below for a deeper look."));
       }
-      const actions = el("div", "lk-actions");
-      const ask = el("button", "btn btn-primary", "Ask TILIK about this address");
-      ask.type = "button";
-      ask.addEventListener("click", () => openChat({ question: "Analyze " + p.address + " on Robinhood Chain" }));
-      actions.append(ask);
-      if (safeUrl(p.url)) actions.append(link(safeUrl(p.url), "Open in explorer ↗", "btn btn-ghost"));
-      card.append(actions);
-      card.append(el("p", "lk-foot mono", p.chain.name + " · chain " + p.chain.chainId + " · read " + new Date(p.generatedAt).toLocaleTimeString()));
-      lookupOut.append(card);
+      card.append(actionsFor({ label: "Ask TILIK about this address", question: "Analyze " + p.address + " on Robinhood Chain" }, p.url, "address", p.address));
+      card.append(foot(p.chain, p.generatedAt));
+      return card;
     };
+
+    const STATUS = { success: ["Success", "ok"], failed: ["Failed", "bad"], pending: ["Pending", ""], unknown: ["Unknown", ""] };
+    const renderTx = (t) => {
+      const card = el("article", "lk-card");
+      const head = el("div", "lk-head");
+      head.append(el("span", "lk-kind tx", "Transaction"));
+      head.append(maybeLink(t.url, t.hash, "lk-addr mono"));
+      const [label, cls] = STATUS[t.status] || STATUS.unknown;
+      head.append(el("span", "lk-tag " + cls, label));
+      card.append(head);
+      const stats = el("div", "lk-stats");
+      stats.append(stat("Value", t.value.value, t.value.symbol));
+      if (t.fee) stats.append(stat("Fee", t.fee.value, t.fee.symbol));
+      if (typeof t.block === "number") stats.append(stat("Block", "#" + num(t.block)));
+      if (t.time) stats.append(stat("Time", ago(t.time), new Date(t.time).toLocaleString()));
+      if (t.method) stats.append(stat("Method", t.method));
+      card.append(stats);
+      const route = el("div", "lk-route");
+      const side = (title, a, lbl) => {
+        const d = el("div", "lk-party");
+        d.append(el("span", "lk-label", title));
+        if (a) d.append(addrBtn(a, lbl ? lbl + " · " + shortA(a) : a));
+        else d.append(el("span", "lk-dim", "—"));
+        return d;
+      };
+      route.append(side("From", t.from, t.fromLabel), el("span", "lk-arrow", "→"), side(t.created ? "Created contract" : "To", t.created || t.to, t.toLabel));
+      card.append(route);
+      card.append(listBlock("Token transfers in this transaction", t.transfers, (x) => {
+        const li = el("li", "lk-tr");
+        const sym = addrBtn(x.token.address, x.token.symbol || shortA(x.token.address));
+        sym.classList.add("lk-strong");
+        const who = el("span", "lk-dim mono");
+        who.append(addrBtn(x.from), " → ", addrBtn(x.to));
+        li.append(el("span", "lk-num mono", x.amount || "?"), sym, who);
+        return li;
+      }));
+      card.append(actionsFor({ label: "Ask TILIK to explain this transaction", question: "Explain transaction " + t.hash + " on Robinhood Chain" }, t.url, "tx", t.hash));
+      card.append(foot(t.chain, t.generatedAt));
+      return card;
+    };
+
     const show = (cls, text) => { lookupOut.replaceChildren(el("p", cls, text)); };
     let busy = false;
-    lookupForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const value = lookupInput.value.trim();
-      if (!/^0x[0-9a-fA-F]{40}$/.test(value)) return show("lk-error", "Enter a full address: 0x followed by 40 characters (0-9, a-f).");
+    const run = async (value, opts = {}) => {
+      value = String(value || "").trim();
+      lookupInput.value = value;
+      const isAddr = ADDR.test(value), isTx = HASH.test(value);
+      if (!isAddr && !isTx) return show("lk-error", "Enter a full address (0x + 40 characters) or a transaction hash (0x + 64 characters).");
       if (busy) return;
       busy = true;
       show("lk-loading", "Reading Robinhood Chain…");
+      if (opts.scroll !== false) lookupOut.scrollIntoView({ block: "nearest", behavior: "smooth" });
       try {
-        const res = await fetch("/api/address/" + encodeURIComponent(value), { headers: { Accept: "application/json" } });
+        const res = await fetch((isAddr ? "/api/address/" : "/api/tx/") + encodeURIComponent(value), { headers: { Accept: "application/json" } });
         const body = await res.json().catch(() => ({}));
-        if (!res.ok) show("lk-error", res.status === 429 ? "Too many lookups. Please wait a minute." : (body && body.error && body.error.message) || "Robinhood Chain could not be read right now.");
-        else render(body);
+        if (!res.ok) return show("lk-error", res.status === 429 ? "Too many lookups. Please wait a minute." : (body && body.error && body.error.message) || "Robinhood Chain could not be read right now.");
+        lookupOut.replaceChildren(isAddr ? renderAddress(body) : renderTx(body));
+        try { history.replaceState(null, "", "/?" + (isAddr ? "address" : "tx") + "=" + value + "#lookup"); } catch { /* sandboxed */ }
       } catch {
         show("lk-error", "Can't reach TILIK. Check your connection and try again.");
       } finally {
         busy = false;
       }
-    });
-    for (const b of document.querySelectorAll("[data-lookup]")) {
-      b.addEventListener("click", () => { lookupInput.value = b.dataset.lookup; lookupForm.requestSubmit(); });
+    };
+    lookupForm.addEventListener("submit", (e) => { e.preventDefault(); run(lookupInput.value); });
+    for (const b of document.querySelectorAll("[data-lookup]")) b.addEventListener("click", () => run(b.dataset.lookup));
+
+    // Shared link: /?address=0x… or /?tx=0x… runs the lookup on arrival.
+    const params = new URLSearchParams(location.search);
+    const shared = params.get("address") || params.get("tx");
+    if (shared && (ADDR.test(shared) || HASH.test(shared))) {
+      document.getElementById("lookup")?.scrollIntoView({ block: "start" });
+      run(shared, { scroll: false });
+    }
+
+    // $TILIK live card (same endpoint; the server caches it for everyone).
+    const live = document.getElementById("tilik-live");
+    if (live) {
+      fetch("/api/address/" + live.dataset.token, { headers: { Accept: "application/json" } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((p) => {
+          if (!p || !p.token) return;
+          const set = (k, v) => { const n = live.querySelector('[data-k="' + k + '"]'); if (n && v) n.textContent = v; };
+          set("holders", typeof p.token.holders === "number" ? num(p.token.holders) : "");
+          set("supply", p.token.totalSupply ? compact(Number(p.token.totalSupply.replace(/,/g, ""))) : "");
+          set("txs", p.counters && typeof p.counters.transactions === "number" ? num(p.counters.transactions) : "");
+          const last = (p.transfers || [])[0];
+          set("last", last && last.time ? ago(last.time) : "");
+          live.hidden = false;
+        })
+        .catch(() => {});
+      live.querySelector("[data-open]")?.addEventListener("click", () => run(live.dataset.token));
     }
   }
 

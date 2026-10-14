@@ -6,7 +6,7 @@ import { toVeyraError } from "../core/errors.js";
 import type { Logger } from "../core/logger.js";
 import type { ClientRateLimiter } from "../security/rate-limit.js";
 import { AnalysisContext } from "../providers/blockchain/analysis.js";
-import { formatUnits, toChecksumAddress, validateAddress } from "../providers/blockchain/evm.js";
+import { formatUnits, isTxHash, toChecksumAddress, validateAddress } from "../providers/blockchain/evm.js";
 import { BlockscoutExplorer, type BsAddressRef, type BsToken } from "../providers/blockchain/explorer.js";
 import { EvmRpcProvider, JsonRpcClient } from "../providers/blockchain/rpc.js";
 import type { BlockchainProvider, ChainBudget } from "../providers/blockchain/types.js";
@@ -24,7 +24,7 @@ import { clientKey, tooManyRequests, type AppVariables } from "./http-guards.js"
  */
 const CACHE_TTL_MS = 30_000;
 const TIMEOUT_MS = 15_000;
-const LOOKUPS_PER_MINUTE = 15;
+const LOOKUPS_PER_MINUTE = 20;
 const LIST_MAX = 10;
 
 export interface AddressTx {
@@ -76,6 +76,26 @@ export interface AddressProfile {
   generatedAt: string;
 }
 
+export interface TxProfile {
+  hash: string;
+  chain: { name: string; chainId: number };
+  status: "success" | "failed" | "pending" | "unknown";
+  block?: number;
+  time?: string;
+  from?: string;
+  fromLabel?: string;
+  to?: string;
+  toLabel?: string;
+  /** Contract deployed by this transaction. */
+  created?: string;
+  method?: string;
+  value: { value: string; symbol: string };
+  fee?: { value: string; symbol: string };
+  transfers: { token: { address: string; symbol?: string; name?: string }; amount?: string; from: string; to: string }[];
+  url?: string;
+  generatedAt: string;
+}
+
 const INVISIBLE = new RegExp("[\\u0000-\\u001f\\u007f\\u200b-\\u200f\\u2028-\\u202e\\ufeff]", "g");
 const clean = (s: unknown, max = 60): string | undefined => {
   const v = String(s ?? "").replace(INVISIBLE, " ").replace(/\s+/g, " ").trim().slice(0, max);
@@ -112,7 +132,7 @@ export function createAddressLookup(env: Env, logger: Logger, deps: AddressDeps 
               ...(chain.explorerApiKey ? { apiKey: chain.explorerApiKey } : {}),
             })
           : undefined));
-  const cache = new TtlCache<AddressProfile>(500);
+  const cache = new TtlCache<unknown>(500);
 
   async function profile(address: string): Promise<AddressProfile> {
     const budget: ChainBudget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 12, explorerCalls: 0, maxExplorerCalls: 8 };
@@ -226,29 +246,99 @@ export function createAddressLookup(env: Env, logger: Logger, deps: AddressDeps 
     return out;
   }
 
-  const inflight = new Map<string, Promise<AddressProfile>>();
+  /** One transaction: RPC (tx + receipt) for the facts, the explorer for time, labels, method and token transfers. */
+  async function transaction(hash: string): Promise<TxProfile | null> {
+    const budget: ChainBudget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 8, explorerCalls: 0, maxExplorerCalls: 4 };
+    const ctx = new AnalysisContext(chain, provider, explorer, budget, { maxTransactions: LIST_MAX, maxLogs: 0, blockWindow: 0 });
+    try {
+      await provider.ensureChain(budget);
+    } catch (err) {
+      const e = toVeyraError(err, "rpc");
+      if (e.kind === "aborted" || /chain ID mismatch/.test(e.message) || !explorer) throw e;
+      ctx.rpcDown = e.kind;
+    }
+    const [tx, bs] = await Promise.all([
+      ctx.optionalRpc("transaction", () => provider.transaction(hash, budget)),
+      ctx.fromExplorer("transaction", (e) => e.transaction(hash, budget)),
+    ]);
+    if (!tx && !bs) {
+      if (ctx.rpcDown && ctx.explorerDown) throw toVeyraError(new Error("unreadable"), "rpc");
+      return null;
+    }
+    const blockNumber = tx?.blockNumber ?? bs?.block_number ?? null;
+    const [receipt, block, transfers] = await Promise.all([
+      blockNumber !== null ? ctx.optionalRpc("receipt", () => provider.receipt(hash, budget)) : Promise.resolve(undefined),
+      blockNumber !== null && !bs?.timestamp ? ctx.optionalRpc("block", () => provider.block(blockNumber, budget)) : Promise.resolve(undefined),
+      ctx.fromExplorer("token transfers", (e) => e.txTokenTransfers(hash, budget)),
+    ]);
+    const status: TxProfile["status"] =
+      blockNumber === null ? "pending" : receipt ? receipt.status : bs?.status === "ok" ? "success" : bs?.status === "error" ? "failed" : "unknown";
+    const fee =
+      receipt && receipt.effectiveGasPrice !== undefined
+        ? receipt.gasUsed * receipt.effectiveGasPrice
+        : bs?.fee?.value && /^\d+$/.test(bs.fee.value)
+          ? BigInt(bs.fee.value)
+          : undefined;
+    const value = tx?.value ?? (bs?.value && /^\d+$/.test(bs.value) ? BigInt(bs.value) : 0n);
+    const from = tx?.from ?? bs?.from.hash;
+    const to = tx ? tx.to : (bs?.to?.hash ?? null);
+    const time = bs?.timestamp ?? block?.timestamp;
+    return {
+      hash,
+      chain: { name: chain.name, chainId: chain.chainId },
+      status,
+      ...(blockNumber !== null ? { block: blockNumber } : {}),
+      ...(time ? { time } : {}),
+      ...(from ? { from: toChecksumAddress(from) } : {}),
+      ...(labelOf(bs?.from) ? { fromLabel: labelOf(bs?.from)! } : {}),
+      ...(to ? { to: toChecksumAddress(to) } : {}),
+      ...(labelOf(bs?.to) ? { toLabel: labelOf(bs?.to)! } : {}),
+      ...(!to && receipt?.contractAddress ? { created: toChecksumAddress(receipt.contractAddress) } : {}),
+      ...(clean(bs?.method, 40) ? { method: clean(bs?.method, 40)! } : tx && tx.input.length >= 10 ? { method: tx.input.slice(0, 10) } : {}),
+      value: { value: formatUnits(value, chain.nativeDecimals, 6), symbol: chain.nativeSymbol },
+      ...(fee !== undefined ? { fee: { value: formatUnits(fee, chain.nativeDecimals, 8), symbol: chain.nativeSymbol } } : {}),
+      transfers: (transfers?.items ?? []).slice(0, LIST_MAX).map((t) => {
+        const dec = t.total?.decimals && /^\d+$/.test(t.total.decimals) ? Number(t.total.decimals) : decimalsOf(t.token);
+        const a = toChecksumAddress(t.token.address_hash);
+        return {
+          token: { address: a, ...(clean(t.token.symbol, 20) ? { symbol: clean(t.token.symbol, 20)! } : {}), ...(clean(t.token.name) ? { name: clean(t.token.name)! } : {}) },
+          ...(amountOf(t.total?.value, dec) ? { amount: amountOf(t.total?.value, dec)! } : {}),
+          from: toChecksumAddress(t.from.hash),
+          to: toChecksumAddress(t.to.hash),
+        };
+      }),
+      ...(ctx.links.tx(hash) ? { url: ctx.links.tx(hash)! } : {}),
+      generatedAt: new Date(now()).toISOString(),
+    };
+  }
+
+  /** Shared cache + single-flight per key. */
+  const inflight = new Map<string, Promise<unknown>>();
+  async function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+    const hit = cache.get(key);
+    if (hit !== undefined) return hit as T;
+    let p = inflight.get(key) as Promise<T> | undefined;
+    if (!p) {
+      p = load()
+        .then((v) => {
+          cache.set(key, v, CACHE_TTL_MS);
+          return v;
+        })
+        .finally(() => inflight.delete(key));
+      inflight.set(key, p);
+    }
+    try {
+      return await p;
+    } catch (err) {
+      logger.warn("chain lookup failed", { error: err instanceof Error ? err.name : "error" });
+      throw err;
+    }
+  }
+
   return {
-    async get(address: string): Promise<AddressProfile> {
-      const key = address.toLowerCase();
-      const hit = cache.get(key);
-      if (hit) return hit;
-      let p = inflight.get(key);
-      if (!p) {
-        p = profile(address)
-          .then((v) => {
-            cache.set(key, v, CACHE_TTL_MS);
-            return v;
-          })
-          .finally(() => inflight.delete(key));
-        inflight.set(key, p);
-      }
-      try {
-        return await p;
-      } catch (err) {
-        logger.warn("address lookup failed", { error: err instanceof Error ? err.name : "error" });
-        throw err;
-      }
-    },
+    get: (address: string): Promise<AddressProfile> => cached(`a:${address.toLowerCase()}`, () => profile(address)),
+    /** null: no such transaction on this chain. */
+    getTx: (hash: string): Promise<TxProfile | null> => cached(`t:${hash.toLowerCase()}`, () => transaction(hash.toLowerCase())),
   };
 }
 
@@ -270,6 +360,23 @@ export function addressRoutes(
     }
     try {
       return c.json(await lookup.get(check.address));
+    } catch {
+      return c.json({ error: { kind: "upstream", message: "Robinhood Chain could not be read right now. Try again in a moment." } }, 502);
+    }
+  });
+  app.get("/api/tx/:hash", async (c) => {
+    c.header("Cache-Control", "no-store");
+    if (!env.ONCHAIN_ENABLED) return c.json({ error: { kind: "unavailable", message: "On-chain data is turned off." } }, 503);
+    const hash = c.req.param("hash").trim();
+    if (!isTxHash(hash)) return c.json({ error: { kind: "validation", message: "That is not a valid transaction hash (expected 0x followed by 64 hex characters)." } }, 400);
+    if (rateLimitEnabled(env)) {
+      const verdict = limiter.take("address", clientKey(c, env), LOOKUPS_PER_MINUTE);
+      if (!verdict.ok) return tooManyRequests(c, verdict.retryAfterMs);
+    }
+    try {
+      const tx = await lookup.getTx(hash);
+      if (!tx) return c.json({ error: { kind: "not_found", message: "No transaction with this hash on Robinhood Chain. Check it, or it may belong to another network." } }, 404);
+      return c.json(tx);
     } catch {
       return c.json({ error: { kind: "upstream", message: "Robinhood Chain could not be read right now. Try again in a moment." } }, 502);
     }

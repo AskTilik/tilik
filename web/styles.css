@@ -811,7 +811,7 @@ a.lk-addr:hover { color: var(--accent); }
 .lk-label { color: var(--dim); font: 500 11px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
 .lk-value { font-size: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lk-sub { color: var(--dim); font-size: 13px; overflow-wrap: anywhere; }
-.lk-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.lk-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 14px 22px; }
 .lk-list h4 { margin: 0 0 8px; font-size: 14px; }
 .lk-list ul { margin: 0; padding: 0; list-style: none; }
 .lk-list li { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 13px; }
@@ -830,6 +830,7 @@ a.lk-time:hover, a.lk-strong:hover { color: var(--accent); }
 .lk-foot { margin: 0; color: var(--dim); font-size: 12px; }
 @media (max-width: 560px) {
   .lookup-form { flex-direction: column; }
+  .lk-lists { grid-template-columns: 1fr; }
   .lookup-input { flex: none; }
   .lk-value { font-size: 15px; overflow-wrap: normal; white-space: nowrap; }
   .lk-stat { padding: 12px; }
@@ -838,3 +839,26 @@ a.lk-time:hover, a.lk-strong:hover { color: var(--accent); }
   .lk-list li > .lk-dim { display: none; }
   .lk-list li.lk-tx { grid-template-columns: auto minmax(0, 1fr) auto auto; }
 }
+
+/* Lookup v2: transactions, clickable addresses, $TILIK live card */
+.lk-kind.tx { background: #b44dff; color: #fff; }
+.lk-tag.bad { color: #ff8fb3; border-color: rgba(255, 77, 141, 0.45); }
+.lk-addr-btn { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.lk-addr-btn:hover { color: var(--accent); text-decoration: underline; }
+.lk-route { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; }
+.lk-party { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; }
+.lk-party .lk-addr-btn { overflow-wrap: anywhere; font-size: 13px; }
+.lk-arrow { color: var(--accent); font-size: 22px; }
+.lk-list li.lk-tr { grid-template-columns: auto auto minmax(0, 1fr); }
+.tilik-live { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; margin: 0 0 18px; padding: 12px 16px; border: 1px solid rgba(228, 255, 26, 0.3); border-radius: 12px; background: rgba(228, 255, 26, 0.04); max-width: 760px; }
+.tilik-live[hidden] { display: none; }
+.tl-name { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+.tl-item { display: inline-flex; align-items: baseline; gap: 6px; font-size: 13px; color: var(--dim); }
+.tl-item b { color: var(--text); font-family: var(--mono); font-size: 14px; }
+.tilik-live .chip-btn { margin-left: auto; }
+@media (max-width: 560px) {
+  .lk-route { grid-template-columns: 1fr; }
+  .lk-arrow { transform: rotate(90deg); justify-self: center; }
+  .tilik-live .chip-btn { margin-left: 0; }
+}
+/* Lookup v2 */
