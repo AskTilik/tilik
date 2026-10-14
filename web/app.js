@@ -1286,4 +1286,18 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       openChat(preset ? { question: preset } : {});
     }
   }
+
+  // Contract address in the footer: click to copy.
+  for (const btn of document.querySelectorAll("[data-copy]")) {
+    const done = btn.querySelector(".ca-done");
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+        if (done) done.textContent = "Copied";
+      } catch {
+        if (done) done.textContent = "Copy failed";
+      }
+      setTimeout(() => { if (done) done.textContent = ""; }, 1600);
+    });
+  }
 })();

@@ -599,7 +599,14 @@ button { font: inherit; color: inherit; }
   cursor: pointer;
 }
 .footer-cols a:hover, .footer-cols button:hover { color: var(--accent); }
-.social { display: flex; justify-content: center; margin: 40px 0 0; }
+.social { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 40px 0 0; }
+.social-ca { display: inline-flex; align-items: center; gap: 10px; max-width: 100%; padding: 9px 16px; border: 1px solid #262626; border-radius: 999px; background: none; color: var(--text); font: 500 13px var(--mono); cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+.social-ca:hover { border-color: var(--accent); background: rgba(255, 255, 255, 0.04); }
+.ca-label { color: var(--accent); font-weight: 700; letter-spacing: 0.08em; }
+.ca-addr { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ca-icon { flex: none; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ca-done { color: var(--accent); font-weight: 700; }
+.ca-done:empty { display: none; }
 .social-x { display: inline-flex; align-items: center; gap: 10px; padding: 9px 16px; border: 1px solid #262626; border-radius: 999px; color: var(--text); font-size: 14px; font-weight: 600; text-decoration: none; transition: border-color 0.2s, background 0.2s; }
 .social-x svg { width: 16px; height: 16px; fill: currentColor; }
 .social-x:hover { border-color: var(--accent); background: rgba(255, 255, 255, 0.04); }
