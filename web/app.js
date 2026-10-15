@@ -973,17 +973,30 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
           card.append(bar);
         }
         const ul = el("ul", "pf-list");
-        for (const h of p.holdings) {
+        // Valued holdings first; dust, thin markets and unpriced tokens fold away behind "Show more".
+        const main = p.holdings.filter((h) => !h.thin && typeof h.valueUsd === "number" && h.valueUsd >= 0.01);
+        const rest = p.holdings.filter((h) => !main.includes(h));
+        let more = null;
+        if (rest.length) {
+          more = el("button", "chip-btn mono pf-more", "Show " + rest.length + " more (dust, thin or no market)");
+          more.type = "button";
+        }
+        for (const h of [...main, ...rest]) {
           const li = el("li", "pf-row" + (h.thin ? " thin" : "") + (h.valueUsd === undefined ? " none" : ""));
           const sym = h.address ? addrBtn(h.address, h.symbol || shortA(h.address)) : el("span", "", h.symbol || "ETH");
           sym.classList.add("lk-strong");
           li.append(sym, el("span", "lk-dim", h.name || ""), el("span", "lk-num mono", h.amount));
           li.append(el("span", "lk-num mono pf-v", h.valueUsd !== undefined ? usd(h.valueUsd) : "no market"));
           const c = el("span", "mono " + (typeof h.change24hPct !== "number" ? "lk-dim" : h.change24hPct >= 0 ? "up" : "down"), typeof h.change24hPct === "number" ? pct(h.change24hPct) : "");
-          li.append(c, el("span", "pf-share mono lk-dim", h.thin ? "thin market" : h.valueUsd && p.totalUsd ? Math.round((h.valueUsd / p.totalUsd) * 100) + "%" : ""));
+          li.append(c, el("span", "pf-share mono lk-dim", h.thin ? "thin" : h.valueUsd && p.totalUsd ? Math.round((h.valueUsd / p.totalUsd) * 100) + "%" : ""));
+          if (rest.includes(h)) li.hidden = true;
           ul.append(li);
         }
         card.append(ul);
+        if (more) {
+          more.addEventListener("click", () => { for (const li of ul.children) li.hidden = false; more.remove(); });
+          card.append(more);
+        }
         card.append(el("p", "lk-foot", (p.unpriced ? p.unpriced + " token(s) have no market price. " : "") + "Tokens with under $1,000 liquidity are shown but not counted. Prices via GeckoTerminal; balances from the chain and the official explorer."));
         const actions = actionsFor({ label: "Ask TILIK about this wallet", question: "Analyze wallet " + p.address + " on Robinhood Chain" }, null, "portfolio", p.address);
         card.append(actions);

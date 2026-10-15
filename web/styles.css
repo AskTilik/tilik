@@ -971,4 +971,6 @@ a.lk-time:hover, a.lk-strong:hover { color: var(--accent); }
   .pf-row > :nth-child(6) { display: none; }
   .pf-total { font-size: 32px; }
 }
+.pf-more { align-self: flex-start; }
+.pf-row[hidden] { display: none; }
 /* Update 6 */
