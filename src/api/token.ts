@@ -447,7 +447,10 @@ export function tokenRoutes(env: Env, limiter: ClientRateLimiter, intel: ReturnT
     const block = limited(c);
     if (block) return block;
     try {
-      return c.json(await intel.get(check.address));
+      const body = await intel.get(check.address);
+      // Public data, same for everyone: let the CDN serve repeats so GeckoTerminal sees ~1 call per minute.
+      c.header("Cache-Control", "public, max-age=15, s-maxage=60, stale-while-revalidate=240");
+      return c.json(body);
     } catch (err) {
       if (err instanceof Error && err.name === "NotAToken") return c.json({ error: { kind: "validation", message: "This address is not a token." } }, 400);
       intel._log.warn("token intel failed", { error: err instanceof Error ? err.name : "error" });
@@ -464,7 +467,9 @@ export function tokenRoutes(env: Env, limiter: ClientRateLimiter, intel: ReturnT
     const block = limited(c);
     if (block) return block;
     try {
-      return c.json(kind === "chart" ? await intel.chart(check.address, tf) : await intel.trades(check.address));
+      const body = kind === "chart" ? await intel.chart(check.address, tf) : await intel.trades(check.address);
+      c.header("Cache-Control", kind === "chart" ? "public, max-age=15, s-maxage=60, stale-while-revalidate=240" : "public, max-age=10, s-maxage=20, stale-while-revalidate=60");
+      return c.json(body);
     } catch (err) {
       if (err instanceof Error && (err.name === "NoPool" || err.name === "NotAToken")) return c.json({ error: { kind: "not_found", message: "No pool with liquidity for this token yet." } }, 404);
       const busy = (err as { kind?: string })?.kind === "rate_limit";
@@ -477,12 +482,14 @@ export function tokenRoutes(env: Env, limiter: ClientRateLimiter, intel: ReturnT
   app.get("/api/token/:address/chart", sub("chart"));
   app.get("/api/token/:address/trades", sub("trades"));
   app.get("/api/radar", async (c) => {
-    c.header("Cache-Control", "public, max-age=30");
+    c.header("Cache-Control", "no-store");
     if (!env.MARKET_ENABLED) return c.json({ error: { kind: "unavailable", message: "Market data is turned off." } }, 503);
     const block = limited(c);
     if (block) return block;
     try {
-      return c.json(await intel.radar());
+      const body = await intel.radar();
+      c.header("Cache-Control", "public, max-age=15, s-maxage=60, stale-while-revalidate=240");
+      return c.json(body);
     } catch {
       return c.json({ error: { kind: "upstream", message: "The radar could not be loaded right now." } }, 502);
     }

@@ -142,6 +142,9 @@ describe("token chart and trades", () => {
     const c: any = await res.json();
     assert.equal(c.pool.name, "TILIK / WETH");
     assert.deepEqual(c.candles.map((x: number[]) => x[0]), [1760000000, 1760000900]);
+    assert.match(res.headers.get("cache-control") ?? "", /public.*s-maxage=60/); // CDN serves repeats
+    const bad = await app().request(`/api/token/${TOKEN}/chart?tf=7m`);
+    assert.equal(bad.headers.get("cache-control"), "no-store"); // errors are never cached
     assert.equal((await app().request(`/api/token/${TOKEN}/chart?tf=7m`)).status, 400);
   });
 

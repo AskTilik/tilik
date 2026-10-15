@@ -359,7 +359,9 @@ export function addressRoutes(
       if (!verdict.ok) return tooManyRequests(c, verdict.retryAfterMs);
     }
     try {
-      return c.json(await lookup.get(check.address));
+      const body = await lookup.get(check.address);
+      c.header("Cache-Control", "public, max-age=15, s-maxage=30, stale-while-revalidate=120");
+      return c.json(body);
     } catch {
       return c.json({ error: { kind: "upstream", message: "Robinhood Chain could not be read right now. Try again in a moment." } }, 502);
     }
@@ -376,6 +378,7 @@ export function addressRoutes(
     try {
       const tx = await lookup.getTx(hash);
       if (!tx) return c.json({ error: { kind: "not_found", message: "No transaction with this hash on Robinhood Chain. Check it, or it may belong to another network." } }, 404);
+      c.header("Cache-Control", "public, max-age=15, s-maxage=30, stale-while-revalidate=120");
       return c.json(tx);
     } catch {
       return c.json({ error: { kind: "upstream", message: "Robinhood Chain could not be read right now. Try again in a moment." } }, 502);
