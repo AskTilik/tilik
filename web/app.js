@@ -448,7 +448,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       box.append(ul);
       return box;
     };
-    const shareUrl = (kind, value) => location.origin + "/?" + kind + "=" + value;
+    const shareUrl = (kind, value) => location.origin + "/" + kind + "/" + value;
     const actionsFor = (ask, explorerUrl, kind, value) => {
       const actions = el("div", "lk-actions");
       const askBtn = el("button", "btn btn-primary", ask.label);
@@ -489,6 +489,12 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       if (p.counters && p.counters.transactions !== undefined) stats.append(stat("All transactions", num(p.counters.transactions)));
       if (p.kind !== "token" && p.counters && p.counters.tokenTransfers !== undefined) stats.append(stat("Token transfers", num(p.counters.tokenTransfers)));
       card.append(stats);
+      if (p.kind === "token") {
+        const intel = el("div", "ti-wrap");
+        intel.append(el("p", "lk-loading", "Checking pools, holders and safety signals…"));
+        card.append(intel);
+        loadIntel(p.address, intel);
+      }
       if (p.history && p.history.available) {
         const lists = el("div", "lk-lists");
         if (p.holdings) {
@@ -530,9 +536,62 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       } else if (p.history && p.history.reason) {
         card.append(el("p", "lk-note", "History: " + p.history.reason + " Ask TILIK below for a deeper look."));
       }
-      card.append(actionsFor({ label: "Ask TILIK about this address", question: "Analyze " + p.address + " on Robinhood Chain" }, p.url, "address", p.address));
+      card.append(actionsFor({ label: "Ask TILIK about this address", question: "Analyze " + p.address + " on Robinhood Chain" }, p.url, p.kind === "token" ? "token" : "address", p.address));
       card.append(foot(p.chain, p.generatedAt));
       return card;
+    };
+
+    // ── Token check: pools with real liquidity, holders, plain safety signals (/api/token/:address) ──
+    const LEVEL = { ok: "✓", info: "i", warn: "!", risk: "✕" };
+    const usdS = (n) => (typeof n === "number" ? usd(n) : "—");
+    const loadIntel = async (address, box) => {
+      try {
+        const res = await fetch("/api/token/" + encodeURIComponent(address), { headers: { Accept: "application/json" } });
+        const t = await res.json().catch(() => ({}));
+        if (!res.ok) { box.replaceChildren(el("p", "lk-note", (t && t.error && t.error.message) || "Token data is unavailable right now.")); return; }
+        box.replaceChildren();
+        if (t.market) {
+          const m = el("div", "lk-stats ti-market");
+          m.append(stat("Price", typeof t.market.priceUsd === "number" ? "$" + t.market.priceUsd.toPrecision(4) : "—", "USD"));
+          m.append(stat("Liquidity", usdS(t.market.liquidityUsd), "all pools"));
+          m.append(stat("Volume 24h", usdS(t.market.volume24hUsd)));
+          m.append(stat("FDV", usdS(t.market.fdvUsd)));
+          box.append(m);
+        }
+        const checks = el("div", "ti-checks");
+        checks.append(el("h4", "", "Safety check"));
+        const ul = el("ul");
+        for (const c of t.checks || []) {
+          const li = el("li", "ti-check " + c.level);
+          li.append(el("span", "ti-dot", LEVEL[c.level] || "i"));
+          const txt = el("div");
+          txt.append(el("b", "", c.title), el("span", "", c.detail));
+          li.append(txt);
+          ul.append(li);
+        }
+        checks.append(ul, el("p", "lk-foot", "Facts from GeckoTerminal and the official explorer, not a rating or advice."));
+        box.append(checks);
+        const lists = el("div", "lk-lists");
+        lists.append(listBlock("Pools · real liquidity", t.pools || [], (pl) => {
+          const li = el("li", "ti-pool" + (pl.main ? " main" : "") + ((pl.feePct || 0) >= 10 ? " bad" : ""));
+          const nm = link(pl.url, pl.name, "lk-strong");
+          li.append(nm, el("span", "lk-dim", pl.dex.replace(/-/g, " ") + (pl.main ? " · main" : "") + ((pl.feePct || 0) >= 10 ? " · " + pl.feePct + "% fee" : "")));
+          li.append(el("span", "lk-num mono", usdS(pl.liquidityUsd)));
+          return li;
+        }));
+        if (t.holders) {
+          lists.append(listBlock("Top holders · top 10 (excl. pools) " + t.holders.top10Pct + "%", t.holders.top, (h) => {
+            const li = el("li");
+            const who = addrBtn(h.address, h.label || shortA(h.address));
+            who.classList.add("lk-strong");
+            li.append(who, el("span", "lk-dim", h.role ? h.role : h.contract ? "contract" : "wallet"), el("span", "lk-num mono", h.pct + "%"));
+            return li;
+          }));
+        }
+        box.append(lists);
+      } catch {
+        box.replaceChildren(el("p", "lk-note", "Token data is unavailable right now."));
+      }
     };
 
     const STATUS = { success: ["Success", "ok"], failed: ["Failed", "bad"], pending: ["Pending", ""], unknown: ["Unknown", ""] };
@@ -591,7 +650,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
         const body = await res.json().catch(() => ({}));
         if (!res.ok) return show("lk-error", res.status === 429 ? "Too many lookups. Please wait a minute." : (body && body.error && body.error.message) || "Robinhood Chain could not be read right now.");
         lookupOut.replaceChildren(isAddr ? renderAddress(body) : renderTx(body));
-        try { history.replaceState(null, "", "/?" + (isAddr ? "address" : "tx") + "=" + value + "#lookup"); } catch { /* sandboxed */ }
+        try { history.replaceState(null, "", "/" + (isAddr ? (body.kind === "token" ? "token" : "address") : "tx") + "/" + value); } catch { /* sandboxed */ }
       } catch {
         show("lk-error", "Can't reach TILIK. Check your connection and try again.");
       } finally {
@@ -603,10 +662,50 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
 
     // Shared link: /?address=0x… or /?tx=0x… runs the lookup on arrival.
     const params = new URLSearchParams(location.search);
-    const shared = params.get("address") || params.get("tx");
+    const pathMatch = location.pathname.match(/^\/(?:address|token|tx)\/(0x[0-9a-fA-F]{40}(?:[0-9a-fA-F]{24})?)\/?$/);
+    const shared = (pathMatch && pathMatch[1]) || params.get("address") || params.get("tx");
     if (shared && (ADDR.test(shared) || HASH.test(shared))) {
       document.getElementById("lookup")?.scrollIntoView({ block: "start" });
       run(shared, { scroll: false });
+    }
+
+    // ── Token radar: trending and new pools on Robinhood Chain (/api/radar) ──
+    const radar = document.getElementById("radar-list");
+    if (radar) {
+      let data = null, tab = "trending";
+      const draw = () => {
+        radar.replaceChildren();
+        const list = data ? data[tab] : [];
+        if (!data) { radar.append(el("p", "lk-loading", "Loading the radar…")); return; }
+        if (!list.length) { radar.append(el("p", "lk-note", "Nothing to show right now.")); return; }
+        for (const pl of list) {
+          const row = el("button", "rd-row");
+          row.type = "button";
+          const name = el("span", "rd-name");
+          name.append(el("b", "", pl.name), el("span", "lk-dim", pl.dex.replace(/-/g, " ")));
+          const chg = typeof pl.change24hPct === "number" ? pl.change24hPct : null;
+          row.append(name,
+            el("span", "rd-cell", usdS(pl.liquidityUsd)),
+            el("span", "rd-cell", usdS(pl.volume24hUsd)),
+            el("span", "rd-cell " + (chg === null ? "" : chg >= 0 ? "up" : "down"), chg === null ? "—" : pct(chg)),
+            el("span", "rd-cell lk-dim", pl.createdAt ? ago(pl.createdAt) : ""),
+            el("span", "rd-go", "Check →"));
+          row.addEventListener("click", () => { document.getElementById("lookup").scrollIntoView({ block: "start", behavior: "smooth" }); run(pl.token.address, { scroll: false }); });
+          radar.append(row);
+        }
+      };
+      for (const b of document.querySelectorAll("[data-radar]")) {
+        b.addEventListener("click", () => {
+          tab = b.dataset.radar;
+          for (const x of document.querySelectorAll("[data-radar]")) x.setAttribute("aria-selected", String(x === b));
+          draw();
+        });
+      }
+      draw();
+      fetch("/api/radar", { headers: { Accept: "application/json" } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { data = d || { trending: [], fresh: [] }; draw(); })
+        .catch(() => { data = { trending: [], fresh: [] }; draw(); });
     }
 
     // $TILIK live card (same endpoint; the server caches it for everyone).

@@ -135,6 +135,8 @@ export class BlockscoutExplorer {
   addressTokens = (a: string, b: ChainBudget) => this.get<{ items?: { token: BsToken; value: string | null }[] }>(`/addresses/${a}/tokens?type=ERC-20`, b);
   token = (a: string, b: ChainBudget) => this.get<BsToken>(`/tokens/${a}`, b, true);
   tokenTransfers = (a: string, b: ChainBudget) => this.get<{ items?: BsTokenTransfer[] }>(`/tokens/${a}/transfers`, b);
+  /** Largest holders first (one page). */
+  tokenHolders = (a: string, b: ChainBudget) => this.get<{ items?: { address: BsAddressRef; value: string }[] }>(`/tokens/${a}/holders`, b);
   topTokens = (b: ChainBudget) => this.get<{ items?: BsToken[] }>("/tokens?type=ERC-20", b);
   recentTransactions = (b: ChainBudget) => this.get<{ items?: BsTransaction[] }>("/transactions?filter=validated", b);
   recentTokenTransfers = (b: ChainBudget) => this.get<{ items?: BsTokenTransfer[] }>("/token-transfers", b);

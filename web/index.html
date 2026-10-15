@@ -51,6 +51,7 @@
           <li><a href="#chain">Robinhood Chain</a></li>
           <li><a href="#pulse">Live pulse</a></li>
           <li><a href="#lookup">Address lookup</a></li>
+          <li><a href="#radar">Token radar</a></li>
           <li><a href="#glossary">Glossary</a></li>
           <li><a href="#trust">Trust &amp; status</a></li>
           <li><a href="#roadmap">Roadmap</a></li>
@@ -87,11 +88,12 @@
       <li><a href="#chain"><span class="mono">04</span>Robinhood Chain</a></li>
       <li><a href="#pulse"><span class="mono">05</span>Live pulse</a></li>
       <li><a href="#lookup"><span class="mono">06</span>Address lookup</a></li>
-      <li><a href="#glossary"><span class="mono">07</span>Glossary</a></li>
-      <li><a href="#trust"><span class="mono">08</span>Trust</a></li>
-      <li><a href="#status"><span class="mono">09</span>Status</a></li>
-      <li><a href="#roadmap"><span class="mono">10</span>Roadmap</a></li>
-      <li><a href="#faq"><span class="mono">11</span>FAQ</a></li>
+      <li><a href="#radar"><span class="mono">07</span>Token radar</a></li>
+      <li><a href="#glossary"><span class="mono">08</span>Glossary</a></li>
+      <li><a href="#trust"><span class="mono">09</span>Trust</a></li>
+      <li><a href="#status"><span class="mono">10</span>Status</a></li>
+      <li><a href="#roadmap"><span class="mono">11</span>Roadmap</a></li>
+      <li><a href="#faq"><span class="mono">12</span>FAQ</a></li>
     </ol>
   </nav>
   <aside class="quick" id="quick" aria-label="Quick actions">
@@ -374,6 +376,24 @@
       <p class="preview-note">Balances, transactions and token details from the Robinhood Chain RPC; history, holdings, holders and labels from the official Blockscout explorer. Not financial advice.</p>
     </section>
 
+    <!-- Token radar: /api/radar (GeckoTerminal; no AI) -->
+    <section class="section tint cont" id="radar" aria-labelledby="radar-title">
+      <div class="section-head status-head">
+        <div>
+          <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span>TOKEN RADAR <span class="new-badge">NEW</span></p>
+          <h2 id="radar-title">What's moving on Robinhood Chain</h2>
+          <p class="section-lede">Trending and brand-new pools, refreshed every minute. Click any row for a full safety check: pools, liquidity, holders.</p>
+        </div>
+        <div class="rd-tabs" role="tablist" aria-label="Radar">
+          <button type="button" role="tab" aria-selected="true" data-radar="trending">Trending</button>
+          <button type="button" role="tab" aria-selected="false" data-radar="fresh">New pools</button>
+        </div>
+      </div>
+      <div class="rd-head mono" aria-hidden="true"><span>Pool</span><span>Liquidity</span><span>Vol 24h</span><span>24h</span><span>Created</span><span></span></div>
+      <div class="rd-list" id="radar-list" aria-live="polite"></div>
+      <p class="preview-note">Pool data via GeckoTerminal. Pools with a fee of 10% or more are hidden. New tokens are risky — this is data, not advice.</p>
+    </section>
+
     <!-- Glossary: every term can be explained by TILIK in the chat -->
     <section class="section tint cont" id="glossary" aria-labelledby="glossary-title">
       <div class="section-head status-head">
@@ -469,7 +489,8 @@
             <li class="reveal"><b>Automatic model fallback</b><span>OpenRouter, then Gemini, then Groq — each tried once.</span></li>
             <li class="reveal"><b>Live pulse</b><span>Chain, top pools and headlines right on this page.</span></li>
             <li class="reveal"><b>Public launch</b><span>Hosted on its own domain at asktilik.com.</span></li>
-            <li class="reveal"><b>Address &amp; transaction lookup <span class="new-badge">NEW</span></b><span>Balances, holdings, holders and transfers for any address or transaction — each with a link to share.</span></li>
+            <li class="reveal"><b>Token safety check &amp; radar <span class="new-badge">NEW</span></b><span>Every pool with its real liquidity, top holders, plain safety signals, and what's trending.</span></li>
+            <li class="reveal"><b>Address &amp; transaction lookup</b><span>Balances, holdings, holders and transfers for any address or transaction — each with a link to share.</span></li>
           </ul>
         </div>
         <div class="road-col next">
@@ -554,6 +575,7 @@
           <h4>Explore</h4>
           <a href="#pulse">Live pulse</a>
           <a href="#lookup">Address lookup</a>
+          <a href="#radar">Token radar</a>
           <a href="#glossary">Glossary</a>
           <a href="#roadmap">Roadmap</a>
           <a href="#faq">FAQ</a>

@@ -8,7 +8,8 @@ import { bodyLimit } from "hono/body-limit";
 import { chatRoutes } from "./api/chat.js";
 import { errorResponse } from "./api/errors.js";
 import { clientKey, corsPolicy, requestLog, securityHeaders, tooManyRequests, type AppVariables } from "./api/http-guards.js";
-import { addressRoutes } from "./api/address.js";
+import { addressRoutes, createAddressLookup } from "./api/address.js";
+import { createTokenIntel, tokenRoutes } from "./api/token.js";
 import { pulseRoutes } from "./api/pulse.js";
 import { systemRoutes } from "./api/system.js";
 import { rateLimitEnabled } from "./config/env.js";
@@ -58,7 +59,10 @@ export function createApp(container: Container): Hono<{ Variables: AppVariables 
 
   app.route("/", systemRoutes(container));
   app.route("/", pulseRoutes(env, logger));
-  app.route("/", addressRoutes(env, logger, clientLimiter));
+  const lookup = createAddressLookup(env, logger);
+  const intel = createTokenIntel(env, logger, lookup);
+  app.route("/", addressRoutes(env, logger, clientLimiter, lookup));
+  app.route("/", tokenRoutes(env, clientLimiter, intel));
   app.route("/", chatRoutes(container));
   // Landing page (static files in /web). Same path from src/ (dev) and dist/ (build).
   const webRoot = fileURLToPath(new URL("../web", import.meta.url));
@@ -66,6 +70,34 @@ export function createApp(container: Container): Hono<{ Variables: AppVariables 
   app.get("/chat/:id{[A-Za-z0-9_-]{1,64}}", async (c) => {
     c.header("Cache-Control", "no-cache");
     return c.html(await readFile(join(webRoot, "index.html"), "utf8"));
+  });
+  // Shareable lookup pages: /address/0x…, /token/0x…, /tx/0x… — the landing page with its own title and
+  // preview text (link previews on X/Telegram show what was shared); the page runs the lookup itself.
+  const page = async (title: string, description: string, path: string) => {
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+    return (await readFile(join(webRoot, "index.html"), "utf8"))
+      .replace(/<title>[^<]*<\/title>/, () => `<title>${esc(title)}</title>`)
+      .replace(/(<meta name="description" content=")[^"]*/, (_, a: string) => a + esc(description))
+      .replace(/(<meta property="og:title" content=")[^"]*/, (_, a: string) => a + esc(title))
+      .replace(/(<meta property="og:description" content=")[^"]*/, (_, a: string) => a + esc(description))
+      .replace(/(<meta property="og:url" content=")[^"]*/, (_, a: string) => a + "https://asktilik.com" + path);
+  };
+  const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+  const quick = <T,>(p: Promise<T>) => Promise.race([p, new Promise<undefined>((r) => setTimeout(() => r(undefined), 2500))]).catch(() => undefined);
+  app.get("/:kind{address|token}/:addr{0x[0-9a-fA-F]{40}}", async (c) => {
+    c.header("Cache-Control", "no-cache");
+    const addr = c.req.param("addr");
+    const p = env.ONCHAIN_ENABLED ? await quick(lookup.get(addr)) : undefined;
+    const name = p?.token?.symbol ? "$" + p.token.symbol : p?.kind === "wallet" ? `Wallet ${short(addr)}` : short(addr);
+    const facts = p?.token
+      ? [p.token.holders !== undefined ? `${p.token.holders.toLocaleString("en-US")} holders` : "", p.token.totalSupply ? `supply ${p.token.totalSupply}` : ""].filter(Boolean).join(" · ")
+      : p?.balance ? `balance ${p.balance.value} ${p.balance.symbol}` : "";
+    return c.html(await page(`${name} on Robinhood Chain · TILIK`, `${facts ? facts + ". " : ""}Pools, holders, safety signals and live activity, read straight from Robinhood Chain.`, c.req.path));
+  });
+  app.get("/tx/:hash{0x[0-9a-fA-F]{64}}", async (c) => {
+    c.header("Cache-Control", "no-cache");
+    const hash = c.req.param("hash");
+    return c.html(await page(`Transaction ${short(hash)} on Robinhood Chain · TILIK`, "Status, value, fee, parties and every token that moved, read straight from Robinhood Chain.", c.req.path));
   });
   // Documentation page.
   app.get("/docs", async (c) => {
