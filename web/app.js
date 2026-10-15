@@ -612,7 +612,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       g.clearRect(0, 0, w, h);
       if (!candles.length) return;
-      const padR = 64, padB = 22, ph = h - padB - 8, pw = w - padR;
+      const padR = 96, padB = 22, ph = h - padB - 8, pw = w - padR;
       const volH = ph * 0.18, priceH = ph - volH - 6;
       const lo = Math.min(...candles.map((c) => c[3])), hi = Math.max(...candles.map((c) => c[2]));
       const span = hi - lo || hi * 0.01 || 1, vmax = Math.max(...candles.map((c) => c[5])) || 1;
