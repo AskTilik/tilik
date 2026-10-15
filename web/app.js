@@ -595,6 +595,14 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       }
     };
 
+    // Market data can be briefly busy upstream: try once more on our own before asking the visitor.
+    const fetchMarket = async (url) => {
+      for (let attempt = 0; ; attempt++) {
+        const r = await fetch(url, { headers: { Accept: "application/json" } });
+        if (r.status !== 503 || attempt >= 1) return r;
+        await new Promise((res) => setTimeout(res, 3000));
+      }
+    };
     const retryNote = (text, again) => {
       const p = el("p", "lk-note", text + " ");
       const b = el("button", "chip-btn mono", "Retry");
@@ -662,7 +670,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
         for (const b of tabs.children) b.setAttribute("aria-selected", String(b.dataset.tf === tf));
         note.textContent = "Loading…";
         try {
-          const r = await fetch("/api/token/" + encodeURIComponent(address) + "/chart?tf=" + tf, { headers: { Accept: "application/json" } });
+          const r = await fetchMarket("/api/token/" + encodeURIComponent(address) + "/chart?tf=" + tf);
           const d = await r.json().catch(() => ({}));
           if (!r.ok) { note.replaceChildren(retryNote((d && d.error && d.error.message) || "Chart unavailable.", () => load(tf))); current = null; drawCandles(canvas, []); return; }
           current = d.candles;
@@ -691,7 +699,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       wrap.append(el("p", "lk-loading", "Loading trades…"));
       (async () => {
         try {
-          const r = await fetch("/api/token/" + encodeURIComponent(address) + "/trades", { headers: { Accept: "application/json" } });
+          const r = await fetchMarket("/api/token/" + encodeURIComponent(address) + "/trades");
           const d = await r.json().catch(() => ({}));
           if (!r.ok) { wrap.replaceChildren(retryNote((d && d.error && d.error.message) || "Trades unavailable.", () => wrap.replaceWith(tradesBlock(address)))); return; }
           wrap.replaceChildren();
