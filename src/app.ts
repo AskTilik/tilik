@@ -10,6 +10,7 @@ import { errorResponse } from "./api/errors.js";
 import { clientKey, corsPolicy, requestLog, securityHeaders, tooManyRequests, type AppVariables } from "./api/http-guards.js";
 import { addressRoutes, createAddressLookup } from "./api/address.js";
 import { createTokenIntel, tokenRoutes } from "./api/token.js";
+import { createPortfolio, portfolioRoutes } from "./api/portfolio.js";
 import { pulseRoutes } from "./api/pulse.js";
 import { systemRoutes } from "./api/system.js";
 import { rateLimitEnabled } from "./config/env.js";
@@ -63,6 +64,7 @@ export function createApp(container: Container): Hono<{ Variables: AppVariables 
   const intel = createTokenIntel(env, logger, lookup);
   app.route("/", addressRoutes(env, logger, clientLimiter, lookup));
   app.route("/", tokenRoutes(env, clientLimiter, intel));
+  app.route("/", portfolioRoutes(env, clientLimiter, createPortfolio(env, logger)));
   app.route("/", chatRoutes(container));
   // Landing page (static files in /web). Same path from src/ (dev) and dist/ (build).
   const webRoot = fileURLToPath(new URL("../web", import.meta.url));
@@ -84,6 +86,11 @@ export function createApp(container: Container): Hono<{ Variables: AppVariables 
   };
   const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
   const quick = <T,>(p: Promise<T>) => Promise.race([p, new Promise<undefined>((r) => setTimeout(() => r(undefined), 2500))]).catch(() => undefined);
+  app.get("/portfolio/:addr{0x[0-9a-fA-F]{40}}", async (c) => {
+    c.header("Cache-Control", "no-cache");
+    const addr = c.req.param("addr");
+    return c.html(await page(`Portfolio ${short(addr)} on Robinhood Chain · TILIK`, "Everything this wallet holds and what it's worth in USD, read live from Robinhood Chain.", c.req.path));
+  });
   app.get("/:kind{address|token}/:addr{0x[0-9a-fA-F]{40}}", async (c) => {
     c.header("Cache-Control", "no-cache");
     const addr = c.req.param("addr");

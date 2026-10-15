@@ -51,6 +51,7 @@
           <li><a href="#chain">Robinhood Chain</a></li>
           <li><a href="#pulse">Live pulse</a></li>
           <li><a href="#lookup">Address lookup</a></li>
+          <li><a href="#portfolio">Portfolio &amp; watchlist</a></li>
           <li><a href="#radar">Token radar</a></li>
           <li><a href="#glossary">Glossary</a></li>
           <li><a href="#trust">Trust &amp; status</a></li>
@@ -88,12 +89,13 @@
       <li><a href="#chain"><span class="mono">04</span>Robinhood Chain</a></li>
       <li><a href="#pulse"><span class="mono">05</span>Live pulse</a></li>
       <li><a href="#lookup"><span class="mono">06</span>Address lookup</a></li>
-      <li><a href="#radar"><span class="mono">07</span>Token radar</a></li>
-      <li><a href="#glossary"><span class="mono">08</span>Glossary</a></li>
-      <li><a href="#trust"><span class="mono">09</span>Trust</a></li>
-      <li><a href="#status"><span class="mono">10</span>Status</a></li>
-      <li><a href="#roadmap"><span class="mono">11</span>Roadmap</a></li>
-      <li><a href="#faq"><span class="mono">12</span>FAQ</a></li>
+      <li><a href="#portfolio"><span class="mono">07</span>Portfolio</a></li>
+      <li><a href="#radar"><span class="mono">08</span>Token radar</a></li>
+      <li><a href="#glossary"><span class="mono">09</span>Glossary</a></li>
+      <li><a href="#trust"><span class="mono">10</span>Trust</a></li>
+      <li><a href="#status"><span class="mono">11</span>Status</a></li>
+      <li><a href="#roadmap"><span class="mono">12</span>Roadmap</a></li>
+      <li><a href="#faq"><span class="mono">13</span>FAQ</a></li>
     </ol>
   </nav>
   <aside class="quick" id="quick" aria-label="Quick actions">
@@ -376,6 +378,30 @@
       <p class="preview-note">Balances, transactions and token details from the Robinhood Chain RPC; history, holdings, holders and labels from the official Blockscout explorer. Not financial advice.</p>
     </section>
 
+    <!-- Portfolio + watchlist: /api/portfolio/:address and /api/prices (chain + explorer + GeckoTerminal; no AI) -->
+    <section class="section tint cont" id="portfolio" aria-labelledby="portfolio-title">
+      <div class="section-head">
+        <p class="eyebrow">PORTFOLIO &amp; WATCHLIST <span class="new-badge">NEW</span></p>
+        <h2 id="portfolio-title">What is a wallet worth?</h2>
+        <p class="section-lede">Paste any Robinhood Chain wallet: every token it holds, priced live in USD, with the 24h change. Star tokens and wallets to keep them on your watchlist.</p>
+      </div>
+      <div class="pf-grid">
+        <div class="pf-main">
+          <form class="lookup-form" id="pf-form" autocomplete="off" novalidate>
+            <label class="sr-only" for="pf-input">Wallet address</label>
+            <input class="lookup-input mono" id="pf-input" type="text" spellcheck="false" maxlength="42" placeholder="0x… wallet address" />
+            <button class="btn btn-primary" type="submit">Check value</button>
+          </form>
+          <div class="pf-result" id="pf-result" aria-live="polite"></div>
+        </div>
+        <aside class="wl" id="watchlist" aria-label="Your watchlist">
+          <div class="wl-head"><h3>☆ Your watchlist</h3><span class="lk-dim mono" id="wl-updated"></span></div>
+          <div id="wl-body"></div>
+          <p class="lk-foot">Saved in this browser only. No account, nothing sent to us but the addresses to price.</p>
+        </aside>
+      </div>
+    </section>
+
     <!-- Token radar: /api/radar (GeckoTerminal; no AI) -->
     <section class="section tint cont" id="radar" aria-labelledby="radar-title">
       <div class="section-head status-head">
@@ -489,7 +515,8 @@
             <li class="reveal"><b>Automatic model fallback</b><span>OpenRouter, then Gemini, then Groq — each tried once.</span></li>
             <li class="reveal"><b>Live pulse</b><span>Chain, top pools and headlines right on this page.</span></li>
             <li class="reveal"><b>Public launch</b><span>Hosted on its own domain at asktilik.com.</span></li>
-            <li class="reveal"><b>Token safety check &amp; radar <span class="new-badge">NEW</span></b><span>Every pool with its real liquidity, top holders, plain safety signals, and what's trending.</span></li>
+            <li class="reveal"><b>Portfolio value &amp; watchlist <span class="new-badge">NEW</span></b><span>What any wallet holds and is worth in USD, and a watchlist of your tokens and wallets.</span></li>
+            <li class="reveal"><b>Token safety check &amp; radar</b><span>Every pool with its real liquidity, top holders, plain safety signals, and what's trending.</span></li>
             <li class="reveal"><b>Address &amp; transaction lookup</b><span>Balances, holdings, holders and transfers for any address or transaction — each with a link to share.</span></li>
           </ul>
         </div>
@@ -575,6 +602,7 @@
           <h4>Explore</h4>
           <a href="#pulse">Live pulse</a>
           <a href="#lookup">Address lookup</a>
+          <a href="#portfolio">Portfolio</a>
           <a href="#radar">Token radar</a>
           <a href="#glossary">Glossary</a>
           <a href="#roadmap">Roadmap</a>

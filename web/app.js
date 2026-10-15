@@ -462,6 +462,13 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
         setTimeout(() => { copy.textContent = "Copy link"; }, 1800);
       });
       actions.append(copy);
+      if (kind !== "tx") actions.append(watchBtn(kind === "token" ? "token" : "wallet", value));
+      if (kind === "address") {
+        const pfb = el("button", "btn btn-ghost", "💰 Portfolio value");
+        pfb.type = "button";
+        pfb.addEventListener("click", () => runPortfolio(value));
+        actions.append(pfb);
+      }
       if (safeUrl(explorerUrl)) actions.append(link(safeUrl(explorerUrl), "Open in explorer ↗", "btn btn-ghost"));
       return actions;
     };
@@ -843,6 +850,153 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
         .then((d) => { data = d || { trending: [], fresh: [] }; draw(); })
         .catch(() => { data = { trending: [], fresh: [] }; draw(); });
     }
+
+    // ── Watchlist (this browser only) ──
+    const WL_KEY = "tilik.watchlist";
+    const wlRead = () => { try { const v = JSON.parse(localStorage.getItem(WL_KEY) || "[]"); return Array.isArray(v) ? v.filter((x) => x && /^0x[0-9a-fA-F]{40}$/.test(x.address) && (x.type === "token" || x.type === "wallet")).slice(0, 30) : []; } catch { return []; } };
+    const wlWrite = (list) => { try { localStorage.setItem(WL_KEY, JSON.stringify(list.slice(0, 30))); } catch { /* storage blocked */ } renderWatchlist(); };
+    const wlHas = (a) => wlRead().some((x) => x.address.toLowerCase() === a.toLowerCase());
+    const wlToggle = (type, address, label) => {
+      const list = wlRead();
+      const i = list.findIndex((x) => x.address.toLowerCase() === address.toLowerCase());
+      if (i >= 0) list.splice(i, 1); else list.unshift({ type, address, ...(label ? { label: String(label).slice(0, 24) } : {}) });
+      wlWrite(list);
+    };
+    function watchBtn(type, address, label) {
+      const b = el("button", "btn btn-ghost wl-star", "");
+      b.type = "button";
+      const sync = () => { const on = wlHas(address); b.textContent = on ? "★ Watching" : "☆ Watch"; b.classList.toggle("on", on); };
+      b.addEventListener("click", () => {
+        const sym = label || (document.querySelector(".lk-card .lk-stat .lk-value") || {}).textContent;
+        wlToggle(type, address, type === "token" ? sym : undefined);
+        sync();
+      });
+      sync();
+      return b;
+    }
+    const wlBody = document.getElementById("wl-body");
+    async function renderWatchlist() {
+      if (!wlBody) return;
+      const list = wlRead();
+      wlBody.replaceChildren();
+      if (!list.length) {
+        const empty = el("div", "wl-empty");
+        empty.append(el("p", "", "Nothing here yet. Tap ☆ Watch on any token or wallet result."));
+        const add = el("button", "chip-btn mono", "☆ Add $TILIK");
+        add.type = "button";
+        add.addEventListener("click", () => wlToggle("token", "0x160b29692f83a2f76d4fee8f04d05f9fdc9aca96", "TILIK"));
+        empty.append(add);
+        wlBody.append(empty);
+        return;
+      }
+      const ul = el("ul", "wl-list");
+      const rows = new Map();
+      for (const item of list) {
+        const li = el("li", "wl-row");
+        const name = addrBtn(item.address, item.type === "token" ? "$" + (item.label || shortA(item.address)) : "👛 " + shortA(item.address));
+        name.classList.add("lk-strong");
+        if (item.type === "wallet") { name.replaceWith(name); name.onclick = null; }
+        const val = el("span", "wl-val mono", "…"), chg = el("span", "wl-chg mono", "");
+        const rm = el("button", "wl-rm", "✕");
+        rm.type = "button"; rm.setAttribute("aria-label", "Remove from watchlist");
+        rm.addEventListener("click", () => wlToggle(item.type, item.address));
+        li.append(name, val, chg, rm);
+        if (item.type === "wallet") {
+          name.addEventListener("click", (e) => { e.stopImmediatePropagation(); runPortfolio(item.address); }, { capture: true });
+        }
+        rows.set(item.address.toLowerCase(), { item, val, chg });
+        ul.append(li);
+      }
+      wlBody.append(ul);
+      const setChg = (node, v) => { node.textContent = typeof v === "number" ? pct(v) : ""; node.className = "wl-chg mono " + (typeof v !== "number" ? "" : v >= 0 ? "up" : "down"); };
+      const tokens = list.filter((x) => x.type === "token").map((x) => x.address);
+      if (tokens.length) {
+        try {
+          const r = await fetchMarket("/api/prices?tokens=" + tokens.join(","));
+          const d = r.ok ? await r.json() : { prices: {} };
+          for (const t of tokens) {
+            const row = rows.get(t.toLowerCase()), p = d.prices[t.toLowerCase()];
+            if (!row) continue;
+            row.val.textContent = p && typeof p.priceUsd === "number" ? "$" + (p.priceUsd >= 1 ? p.priceUsd.toFixed(2) : p.priceUsd.toPrecision(3)) : "no market";
+            setChg(row.chg, p && p.change24hPct);
+          }
+        } catch { /* keep "…" */ }
+      }
+      for (const w of list.filter((x) => x.type === "wallet").slice(0, 6)) {
+        fetchMarket("/api/portfolio/" + w.address).then((r) => (r.ok ? r.json() : null)).then((p) => {
+          const row = rows.get(w.address.toLowerCase());
+          if (!row) return;
+          row.val.textContent = p ? usd(p.totalUsd) : "—";
+          setChg(row.chg, p && p.change24hPct);
+        }).catch(() => {});
+      }
+      const upd = document.getElementById("wl-updated");
+      if (upd) upd.textContent = "updated " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+
+    // ── Portfolio: what a wallet holds, priced live (/api/portfolio/:address) ──
+    const pfForm = document.getElementById("pf-form"), pfInput = document.getElementById("pf-input"), pfOut = document.getElementById("pf-result");
+    async function runPortfolio(address, opts = {}) {
+      if (!pfForm) return;
+      address = String(address || "").trim();
+      pfInput.value = address;
+      if (!ADDR.test(address)) { pfOut.replaceChildren(el("p", "lk-error", "Enter a full wallet address: 0x followed by 40 characters.")); return; }
+      if (opts.scroll !== false) document.getElementById("portfolio").scrollIntoView({ block: "start", behavior: "smooth" });
+      pfOut.replaceChildren(el("p", "lk-loading", "Reading the wallet and pricing every token…"));
+      try {
+        const r = await fetchMarket("/api/portfolio/" + encodeURIComponent(address));
+        const p = await r.json().catch(() => ({}));
+        if (!r.ok) { pfOut.replaceChildren(retryNote((p && p.error && p.error.message) || "This wallet could not be read.", () => runPortfolio(address, { scroll: false }))); return; }
+        const card = el("article", "lk-card");
+        const head = el("div", "lk-head");
+        head.append(el("span", "lk-kind wallet", "Portfolio"), link(location.origin + "/address/" + p.address, p.address, "lk-addr mono"));
+        card.append(head);
+        const hero = el("div", "pf-hero");
+        const tot = el("div");
+        tot.append(el("span", "lk-label", "Total value"), el("b", "pf-total", usd(p.totalUsd)));
+        const ch = el("div");
+        const up = p.change24hUsd >= 0;
+        ch.append(el("span", "lk-label", "24h change"), el("b", "pf-chg " + (up ? "up" : "down"), (up ? "+" : "−") + usd(Math.abs(p.change24hUsd)) + (typeof p.change24hPct === "number" ? " (" + pct(p.change24hPct) + ")" : "")));
+        hero.append(tot, ch);
+        card.append(hero);
+        const counted = p.holdings.filter((h) => typeof h.valueUsd === "number" && !h.thin && h.valueUsd > 0);
+        if (counted.length && p.totalUsd > 0) {
+          const bar = el("div", "pf-bar");
+          const COLORS = ["#e4ff1a", "#38d6f5", "#ff4d8d", "#7cff6b", "#b44dff", "#ffb21e"];
+          counted.slice(0, 6).forEach((h, i) => {
+            const seg = el("span", "", "");
+            seg.style.setProperty("--w", Math.max(1, (h.valueUsd / p.totalUsd) * 100) + "%");
+            seg.style.setProperty("--c", COLORS[i]);
+            seg.title = (h.symbol || "?") + " " + Math.round((h.valueUsd / p.totalUsd) * 100) + "%";
+            bar.append(seg);
+          });
+          card.append(bar);
+        }
+        const ul = el("ul", "pf-list");
+        for (const h of p.holdings) {
+          const li = el("li", "pf-row" + (h.thin ? " thin" : "") + (h.valueUsd === undefined ? " none" : ""));
+          const sym = h.address ? addrBtn(h.address, h.symbol || shortA(h.address)) : el("span", "", h.symbol || "ETH");
+          sym.classList.add("lk-strong");
+          li.append(sym, el("span", "lk-dim", h.name || ""), el("span", "lk-num mono", h.amount));
+          li.append(el("span", "lk-num mono pf-v", h.valueUsd !== undefined ? usd(h.valueUsd) : "no market"));
+          const c = el("span", "mono " + (typeof h.change24hPct !== "number" ? "lk-dim" : h.change24hPct >= 0 ? "up" : "down"), typeof h.change24hPct === "number" ? pct(h.change24hPct) : "");
+          li.append(c, el("span", "pf-share mono lk-dim", h.thin ? "thin market" : h.valueUsd && p.totalUsd ? Math.round((h.valueUsd / p.totalUsd) * 100) + "%" : ""));
+          ul.append(li);
+        }
+        card.append(ul);
+        card.append(el("p", "lk-foot", (p.unpriced ? p.unpriced + " token(s) have no market price. " : "") + "Tokens with under $1,000 liquidity are shown but not counted. Prices via GeckoTerminal; balances from the chain and the official explorer."));
+        const actions = actionsFor({ label: "Ask TILIK about this wallet", question: "Analyze wallet " + p.address + " on Robinhood Chain" }, null, "portfolio", p.address);
+        card.append(actions);
+        pfOut.replaceChildren(card);
+        try { history.replaceState(null, "", "/portfolio/" + p.address); } catch { /* sandboxed */ }
+      } catch {
+        pfOut.replaceChildren(retryNote("Can't reach TILIK right now.", () => runPortfolio(address, { scroll: false })));
+      }
+    }
+    pfForm?.addEventListener("submit", (e) => { e.preventDefault(); runPortfolio(pfInput.value); });
+    const pfPath = location.pathname.match(/^\/portfolio\/(0x[0-9a-fA-F]{40})\/?$/);
+    if (pfPath) { document.getElementById("portfolio")?.scrollIntoView({ block: "start" }); runPortfolio(pfPath[1], { scroll: false }); }
+    renderWatchlist();
 
     // $TILIK live card (same endpoint; the server caches it for everyone).
     const live = document.getElementById("tilik-live");
