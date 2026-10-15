@@ -642,8 +642,9 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       g.fillStyle = "#e4ff1a"; g.fillRect(pw + 2, ly - 9, padR - 4, 18);
       g.fillStyle = "#000"; g.fillText(priceFmt(last[4]), pw + 8, ly);
       g.fillStyle = "rgba(255,255,255,0.4)"; g.textAlign = "center";
-      const fmtT = (t) => new Date(t * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-      [0, Math.floor(candles.length / 2), candles.length - 1].forEach((i) => g.fillText(fmtT(candles[i][0]), Math.min(pw - 50, Math.max(50, i * step + step / 2)), h - 10));
+      const narrow = pw < 420;
+      const fmtT = (t) => new Date(t * 1000).toLocaleString([], narrow ? { hour: "2-digit", minute: "2-digit" } : { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      (narrow ? [0, candles.length - 1] : [0, Math.floor(candles.length / 2), candles.length - 1]).forEach((i) => g.fillText(fmtT(candles[i][0]), Math.min(pw - 34, Math.max(34, i * step + step / 2)), h - 10));
     };
     const chartBlock = (address) => {
       const wrap = el("div", "tc-wrap");
