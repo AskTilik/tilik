@@ -70,6 +70,33 @@ export interface TokenIntel {
   sources: string[];
   generatedAt: string;
 }
+export const TIMEFRAMES = { "15m": ["minute", 15, 96], "1h": ["hour", 1, 72], "4h": ["hour", 4, 90], "1d": ["day", 1, 60] } as const;
+export type Timeframe = keyof typeof TIMEFRAMES;
+export interface Chart {
+  pool: { name: string; address: string; dex: string; url: string };
+  tf: Timeframe;
+  /** [unix seconds, open, high, low, close, volume USD], oldest first, price in USD. */
+  candles: [number, number, number, number, number, number][];
+  generatedAt: string;
+}
+export interface Trade {
+  kind: "buy" | "sell";
+  usd: number;
+  amount: number;
+  priceUsd?: number;
+  wallet: string;
+  time: string;
+  tx: string;
+  url?: string;
+  whale?: boolean;
+}
+export interface Trades {
+  pool: { name: string; address: string; dex: string; url: string };
+  trades: Trade[];
+  summary: { buys: number; sells: number; buyUsd: number; sellUsd: number; wallets: number; since?: string; whaleUsd: number };
+  generatedAt: string;
+}
+
 export interface RadarPool extends PoolInfo {
   token: { address: string; symbol?: string };
 }
@@ -109,8 +136,8 @@ export function createTokenIntel(
     new GeckoTerminalClient({
       baseUrl: env.GECKOTERMINAL_API_URL.replace(/\/+$/, ""),
       timeoutMs: env.GECKOTERMINAL_TIMEOUT_MS,
-      retries: 0,
-      ratePerMinute: Math.min(12, env.GECKOTERMINAL_RATE_LIMIT_PER_MINUTE),
+      retries: 2, // GeckoTerminal answers short bursts with 429 + Retry-After: 0; a quick retry succeeds
+      ratePerMinute: env.GECKOTERMINAL_RATE_LIMIT_PER_MINUTE,
       ttlSeconds: { live: 60, pools: 60, meta: 3600 },
       staleMaxSeconds: env.MARKET_STALE_MAX_SECONDS,
     });
@@ -328,7 +355,77 @@ export function createTokenIntel(
     return { trending: map(tr?.body.data, 1_000), fresh: map(nw?.body.data, 0), generatedAt: new Date(now()).toISOString() };
   }
 
+  /** The token's main pool (deepest liquidity), from the cached intel. */
+  async function mainPool(address: string) {
+    const t = (await cached(`tok:${address.toLowerCase()}`, TOKEN_TTL_MS, () => intel(address))) as TokenIntel;
+    const p = t.pools.find((x) => x.main);
+    if (!p) {
+      const e = new Error("no pool");
+      e.name = "NoPool";
+      throw e;
+    }
+    return { info: { name: p.name, address: p.address, dex: p.dex, url: p.url }, liquidity: p.liquidityUsd ?? 0, token: t.address.toLowerCase() };
+  }
+
+  async function chart(address: string, tf: Timeframe): Promise<Chart> {
+    const { info } = await mainPool(address);
+    const [unit, agg, limit] = TIMEFRAMES[tf];
+    const res = await gecko.get<{ data?: { attributes?: { ohlcv_list?: unknown[][] } } }>(
+      `/networks/${encodeURIComponent(net)}/pools/${info.address}/ohlcv/${unit}?aggregate=${agg}&limit=${limit}&currency=usd&token=base`,
+      "live",
+      gtBudget(1),
+    );
+    const candles = (res?.body.data?.attributes?.ohlcv_list ?? [])
+      .map((r) => r.map(Number))
+      .filter((r) => r.length >= 6 && r.every(Number.isFinite) && r[1]! > 0)
+      .map((r) => [r[0], r[1], r[2], r[3], r[4], r[5]] as [number, number, number, number, number, number])
+      .sort((a, b) => a[0] - b[0]);
+    return { pool: info, tf, candles, generatedAt: new Date(now()).toISOString() };
+  }
+
+  async function trades(address: string): Promise<Trades> {
+    const { info, liquidity, token } = await mainPool(address);
+    const res = await gecko.get<{ data?: { attributes?: Record<string, any> }[] }>(`/networks/${encodeURIComponent(net)}/pools/${info.address}/trades`, "live", gtBudget(1));
+    // "Whale": a single trade worth at least 2% of the pool's liquidity (and $100+).
+    const whaleUsd = Math.max(100, Math.round(liquidity * 0.02));
+    const all = (res?.body.data ?? [])
+      .map((d): Trade | null => {
+        const a = d.attributes ?? {};
+        const kind = a.kind === "buy" || a.kind === "sell" ? a.kind : null;
+        const usdV = num(a.volume_in_usd);
+        const wallet = String(a.tx_from_address ?? "");
+        const tx = String(a.tx_hash ?? "");
+        if (!kind || usdV === undefined || !/^0x[0-9a-fA-F]{40}$/.test(wallet) || !/^0x[0-9a-fA-F]{64}$/.test(tx) || typeof a.block_timestamp !== "string") return null;
+        const amount = num(kind === "buy" ? a.to_token_amount : a.from_token_amount) ?? 0;
+        const tokenSide = String(kind === "buy" ? a.to_token_address : a.from_token_address).toLowerCase();
+        const price = num(kind === "buy" ? a.price_to_in_usd : a.price_from_in_usd);
+        return {
+          kind,
+          usd: usdV,
+          amount: tokenSide === token ? amount : 0,
+          ...(price !== undefined && tokenSide === token ? { priceUsd: price } : {}),
+          wallet: toChecksumAddress(wallet),
+          time: a.block_timestamp,
+          tx,
+          ...(chain.explorerUrl ? { url: `${chain.explorerUrl}/tx/${tx}` } : {}),
+          ...(usdV >= whaleUsd ? { whale: true } : {}),
+        };
+      })
+      .filter((t): t is Trade => t !== null)
+      .sort((a, b) => Date.parse(b.time) - Date.parse(a.time));
+    const buys = all.filter((t) => t.kind === "buy"), sells = all.filter((t) => t.kind === "sell");
+    const sum = (l: Trade[]) => Math.round(l.reduce((s, t) => s + t.usd, 0) * 100) / 100;
+    return {
+      pool: info,
+      trades: all.slice(0, 25),
+      summary: { buys: buys.length, sells: sells.length, buyUsd: sum(buys), sellUsd: sum(sells), wallets: new Set(all.map((t) => t.wallet)).size, ...(all.length ? { since: all[all.length - 1]!.time } : {}), whaleUsd },
+      generatedAt: new Date(now()).toISOString(),
+    };
+  }
+
   return {
+    chart: (address: string, tf: Timeframe) => cached(`chart:${address.toLowerCase()}:${tf}`, 120_000, () => chart(address, tf)),
+    trades: (address: string) => cached(`trades:${address.toLowerCase()}`, 30_000, () => trades(address)),
     get: (address: string) => cached(`tok:${address.toLowerCase()}`, TOKEN_TTL_MS, () => intel(address)),
     radar: () => cached("radar", RADAR_TTL_MS, radar),
     _log: logger,
@@ -357,6 +454,28 @@ export function tokenRoutes(env: Env, limiter: ClientRateLimiter, intel: ReturnT
       return c.json({ error: { kind: "upstream", message: "Token data could not be read right now. Try again in a moment." } }, 502);
     }
   });
+  const sub = (kind: "chart" | "trades") => async (c: any) => {
+    c.header("Cache-Control", "no-store");
+    if (!env.MARKET_ENABLED) return c.json({ error: { kind: "unavailable", message: "Market data is turned off." } }, 503);
+    const check = validateAddress(String(c.req.param("address")).trim());
+    if (!check.ok) return c.json({ error: { kind: "validation", message: "That is not a valid token address." } }, 400);
+    const tf = (c.req.query("tf") ?? "1h") as Timeframe;
+    if (kind === "chart" && !(tf in TIMEFRAMES)) return c.json({ error: { kind: "validation", message: "Timeframe must be 15m, 1h, 4h or 1d." } }, 400);
+    const block = limited(c);
+    if (block) return block;
+    try {
+      return c.json(kind === "chart" ? await intel.chart(check.address, tf) : await intel.trades(check.address));
+    } catch (err) {
+      if (err instanceof Error && (err.name === "NoPool" || err.name === "NotAToken")) return c.json({ error: { kind: "not_found", message: "No pool with liquidity for this token yet." } }, 404);
+      const busy = (err as { kind?: string })?.kind === "rate_limit";
+      intel._log.warn("token " + kind + " failed", { error: err instanceof Error ? err.name : "error", busy });
+      return busy
+        ? c.json({ error: { kind: "rate_limit", message: "Market data is busy right now. Try again in a few seconds." } }, 503)
+        : c.json({ error: { kind: "upstream", message: "Market data could not be read right now. Try again in a moment." } }, 502);
+    }
+  };
+  app.get("/api/token/:address/chart", sub("chart"));
+  app.get("/api/token/:address/trades", sub("trades"));
   app.get("/api/radar", async (c) => {
     c.header("Cache-Control", "public, max-age=30");
     if (!env.MARKET_ENABLED) return c.json({ error: { kind: "unavailable", message: "Market data is turned off." } }, 503);

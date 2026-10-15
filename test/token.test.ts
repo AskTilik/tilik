@@ -50,6 +50,16 @@ function gt(path: string): Response {
     return jsonResponse({ data: { attributes: { name: "Tilik", symbol: "TILIK", total_supply: "1000000000000000000000000000.0", price_usd: "0.0000169", fdv_usd: "16948", total_reserve_in_usd: "23931", volume_usd: { h24: "89653" }, launchpad_details: { completed: true, completed_at: "2026-10-15T05:38:21.000Z", migrated_destination_pool_address: MAIN } } } });
   if (path.startsWith(`/networks/robinhood/tokens/${t}/pools`))
     return jsonResponse({ data: [gtPool(SIDE, "TILIK / USDG 90%", "uniswap-v4-robinhood", "14"), gtPool(MAIN, "TILIK / WETH", "pons-v2-dex", "23931")] });
+  if (path.startsWith(`/networks/robinhood/pools/${MAIN}/ohlcv/minute`))
+    return jsonResponse({ data: { attributes: { ohlcv_list: [[1760000900, 2, 3, 1.5, 2.5, 100], [1760000000, 1, 2, 0.9, 2, 50], [1760001800, 0, 0, 0, 0, 0]] } } });
+  if (path === `/networks/robinhood/pools/${MAIN}/trades`)
+    return jsonResponse({
+      data: [
+        { attributes: { kind: "buy", volume_in_usd: "30", block_timestamp: "2026-10-15T08:50:23Z", tx_hash: `0x${"11".repeat(32)}`, tx_from_address: WHALE.toLowerCase(), to_token_address: TOKEN.toLowerCase(), to_token_amount: "1500000", price_to_in_usd: "0.00002" } },
+        { attributes: { kind: "sell", volume_in_usd: "900", block_timestamp: "2026-10-15T08:51:00Z", tx_hash: `0x${"22".repeat(32)}`, tx_from_address: SIDE.toLowerCase(), from_token_address: TOKEN.toLowerCase(), from_token_amount: "40000000", price_from_in_usd: "0.0000225" } },
+        { attributes: { kind: "weird", volume_in_usd: "1" } },
+      ],
+    });
   if (path.startsWith("/networks/robinhood/trending_pools")) return jsonResponse({ data: [gtPool(MAIN, "TILIK / WETH", "pons-v2-dex", "23931"), gtPool(SIDE, "JUNK / WETH 90%", "uniswap-v4-robinhood", "5000")] });
   if (path.startsWith("/networks/robinhood/new_pools")) return jsonResponse({ data: [gtPool(SIDE, "NEW / WETH", "pons-v2", "0", new Date().toISOString())] });
   return new Response("{}", { status: 404 });
@@ -122,6 +132,29 @@ describe("token check API", () => {
     assert.deepEqual(r.trending.map((p: any) => p.name), ["TILIK / WETH"]);
     assert.equal(r.trending[0].token.address, TOKEN);
     assert.equal(r.fresh.length, 1);
+  });
+});
+
+describe("token chart and trades", () => {
+  it("returns main-pool candles oldest first and drops empty ones", async () => {
+    const res = await app().request(`/api/token/${TOKEN}/chart?tf=15m`);
+    assert.equal(res.status, 200);
+    const c: any = await res.json();
+    assert.equal(c.pool.name, "TILIK / WETH");
+    assert.deepEqual(c.candles.map((x: number[]) => x[0]), [1760000000, 1760000900]);
+    assert.equal((await app().request(`/api/token/${TOKEN}/chart?tf=7m`)).status, 400);
+  });
+
+  it("returns the latest trades newest first with buy/sell pressure and whales (2% of liquidity)", async () => {
+    const res = await app().request(`/api/token/${TOKEN}/trades`);
+    assert.equal(res.status, 200);
+    const d: any = await res.json();
+    assert.equal(d.trades.length, 2);
+    assert.equal(d.trades[0].kind, "sell");
+    assert.equal(d.trades[0].whale, true); // 900 >= max(100, 2% of 23,931)
+    assert.equal(d.trades[1].whale, undefined);
+    assert.equal(d.trades[1].amount, 1500000);
+    assert.deepEqual({ buys: d.summary.buys, sells: d.summary.sells, buyUsd: d.summary.buyUsd, sellUsd: d.summary.sellUsd, wallets: d.summary.wallets, whaleUsd: d.summary.whaleUsd }, { buys: 1, sells: 1, buyUsd: 30, sellUsd: 900, wallets: 2, whaleUsd: 479 });
   });
 });
 

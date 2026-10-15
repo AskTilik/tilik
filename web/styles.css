@@ -902,3 +902,32 @@ a.lk-time:hover, a.lk-strong:hover { color: var(--accent); }
   .ti-checks ul { grid-template-columns: 1fr; }
 }
 /* Update 4 */
+
+/* Update 5: price chart + live trades */
+.tc-wrap, .tt-wrap { display: flex; flex-direction: column; gap: 10px; }
+.tc-head, .tt-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.tc-head h4, .tt-head h4 { margin: 0; font-size: 14px; }
+.tc-info { font: 600 13px var(--mono); }
+.tc-info.up { color: #7cff6b; }
+.tc-info.down { color: #ff8fb3; }
+.tc-tabs { margin-left: auto; }
+.tc-tabs button { padding: 5px 11px; font-size: 12px; }
+.tc-canvas { width: 100%; height: 260px; border: 1px solid var(--border); border-radius: 10px; background: rgba(255, 255, 255, 0.015); }
+.tt-bar { display: flex; height: 30px; border-radius: 8px; overflow: hidden; font: 700 12px var(--mono); }
+.tt-bar span { display: flex; align-items: center; padding: 0 10px; white-space: nowrap; overflow: hidden; }
+.tt-buy { flex: 0 0 var(--w, 50%); background: rgba(124, 255, 107, 0.18); color: #7cff6b; }
+.tt-sell { flex: 1; justify-content: flex-end; background: rgba(255, 77, 141, 0.16); color: #ff8fb3; }
+.tt-list { margin: 0; padding: 0; list-style: none; max-height: 340px; overflow-y: auto; }
+.tt-row { display: grid; grid-template-columns: 46px 90px 70px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 7px 4px; border-top: 1px solid var(--border); font-size: 13px; }
+.tt-kind { font: 800 11px var(--mono); }
+.tt-row.buy .tt-kind { color: #7cff6b; }
+.tt-row.sell .tt-kind { color: #ff8fb3; }
+.tt-row.whale { background: rgba(228, 255, 26, 0.06); }
+.tt-whale { padding: 2px 8px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font: 700 11px var(--mono); white-space: nowrap; }
+@media (max-width: 560px) {
+  .tc-canvas { height: 210px; }
+  .tc-tabs { margin-left: 0; }
+  .tt-row { grid-template-columns: 40px 76px minmax(0, 1fr) auto; }
+  .tt-row > :nth-child(3), .tt-row > :nth-child(5) { display: none; }
+}
+/* Update 5 */

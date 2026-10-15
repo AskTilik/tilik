@@ -558,6 +558,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
           m.append(stat("FDV", usdS(t.market.fdvUsd)));
           box.append(m);
         }
+        box.append(chartBlock(address), tradesBlock(address));
         const checks = el("div", "ti-checks");
         checks.append(el("h4", "", "Safety check"));
         const ul = el("ul");
@@ -592,6 +593,132 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       } catch {
         box.replaceChildren(el("p", "lk-note", "Token data is unavailable right now."));
       }
+    };
+
+    const retryNote = (text, again) => {
+      const p = el("p", "lk-note", text + " ");
+      const b = el("button", "chip-btn mono", "Retry");
+      b.type = "button";
+      b.addEventListener("click", again);
+      p.append(b);
+      return p;
+    };
+    // ── Price chart: main-pool candles in USD (/api/token/:address/chart) ──
+    const priceFmt = (v) => (v >= 1 ? "$" + v.toFixed(2) : "$" + v.toPrecision(3));
+    const drawCandles = (canvas, candles) => {
+      const dpr = Math.min(2, devicePixelRatio || 1), w = canvas.clientWidth, h = canvas.clientHeight;
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+      const g = canvas.getContext("2d");
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, w, h);
+      if (!candles.length) return;
+      const padR = 64, padB = 22, ph = h - padB - 8, pw = w - padR;
+      const volH = ph * 0.18, priceH = ph - volH - 6;
+      const lo = Math.min(...candles.map((c) => c[3])), hi = Math.max(...candles.map((c) => c[2]));
+      const span = hi - lo || hi * 0.01 || 1, vmax = Math.max(...candles.map((c) => c[5])) || 1;
+      const y = (v) => 8 + (1 - (v - lo) / span) * priceH;
+      const step = pw / candles.length, bw = Math.max(1, Math.min(12, step * 0.62));
+      g.strokeStyle = "rgba(255,255,255,0.06)"; g.lineWidth = 1;
+      g.fillStyle = "rgba(255,255,255,0.45)"; g.font = "11px JetBrains Mono, monospace"; g.textAlign = "left"; g.textBaseline = "middle";
+      for (let i = 0; i <= 4; i++) {
+        const v = lo + (span * i) / 4, yy = y(v);
+        g.beginPath(); g.moveTo(0, yy); g.lineTo(pw, yy); g.stroke();
+        g.fillText(priceFmt(v), pw + 8, yy);
+      }
+      candles.forEach((c, i) => {
+        const x = i * step + step / 2, up = c[4] >= c[1], col = up ? "#7cff6b" : "#ff4d8d";
+        g.strokeStyle = col; g.fillStyle = col;
+        g.beginPath(); g.moveTo(x, y(c[2])); g.lineTo(x, y(c[3])); g.stroke();
+        const top = y(Math.max(c[1], c[4])), bot = y(Math.min(c[1], c[4]));
+        g.fillRect(x - bw / 2, top, bw, Math.max(1.5, bot - top));
+        g.globalAlpha = 0.28;
+        const vh = (c[5] / vmax) * volH;
+        g.fillRect(x - bw / 2, 8 + priceH + 6 + volH - vh, bw, vh);
+        g.globalAlpha = 1;
+      });
+      const last = candles[candles.length - 1], ly = y(last[4]);
+      g.setLineDash([3, 4]); g.strokeStyle = "rgba(228,255,26,0.7)";
+      g.beginPath(); g.moveTo(0, ly); g.lineTo(pw, ly); g.stroke(); g.setLineDash([]);
+      g.fillStyle = "#e4ff1a"; g.fillRect(pw + 2, ly - 9, padR - 4, 18);
+      g.fillStyle = "#000"; g.fillText(priceFmt(last[4]), pw + 8, ly);
+      g.fillStyle = "rgba(255,255,255,0.4)"; g.textAlign = "center";
+      const fmtT = (t) => new Date(t * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      [0, Math.floor(candles.length / 2), candles.length - 1].forEach((i) => g.fillText(fmtT(candles[i][0]), Math.min(pw - 50, Math.max(50, i * step + step / 2)), h - 10));
+    };
+    const chartBlock = (address) => {
+      const wrap = el("div", "tc-wrap");
+      const head = el("div", "tc-head");
+      const title = el("h4", "", "Price chart");
+      const info = el("span", "lk-dim tc-info", "");
+      const tabs = el("div", "rd-tabs tc-tabs");
+      head.append(title, info, tabs);
+      const canvas = el("canvas", "tc-canvas");
+      canvas.setAttribute("aria-label", "Price chart of the main pool");
+      const note = el("p", "lk-foot", "");
+      wrap.append(head, canvas, note);
+      let current = null;
+      const load = async (tf) => {
+        for (const b of tabs.children) b.setAttribute("aria-selected", String(b.dataset.tf === tf));
+        note.textContent = "Loading…";
+        try {
+          const r = await fetch("/api/token/" + encodeURIComponent(address) + "/chart?tf=" + tf, { headers: { Accept: "application/json" } });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { note.replaceChildren(retryNote((d && d.error && d.error.message) || "Chart unavailable.", () => load(tf))); current = null; drawCandles(canvas, []); return; }
+          current = d.candles;
+          drawCandles(canvas, current);
+          const first = current[0], last = current[current.length - 1];
+          const ch = first && last ? ((last[4] - first[1]) / first[1]) * 100 : null;
+          info.textContent = ch === null ? "" : pct(ch) + " over " + current.length + " candles";
+          info.className = "tc-info " + (ch === null ? "lk-dim" : ch >= 0 ? "up" : "down");
+          note.textContent = d.pool.name + " · " + d.pool.dex.replace(/-/g, " ") + " · USD · via GeckoTerminal" + (current.length < 10 ? " · new pool, little history yet" : "");
+        } catch { note.textContent = "Chart unavailable."; }
+      };
+      for (const tf of ["15m", "1h", "4h", "1d"]) {
+        const b = el("button", "", tf);
+        b.type = "button"; b.dataset.tf = tf; b.setAttribute("aria-selected", "false");
+        b.addEventListener("click", () => load(tf));
+        tabs.append(b);
+      }
+      addEventListener("resize", () => { if (current && wrap.isConnected) drawCandles(canvas, current); });
+      requestAnimationFrame(() => load("15m"));
+      return wrap;
+    };
+
+    // ── Live trades: latest buys and sells on the main pool, with buy/sell pressure (/api/token/:address/trades) ──
+    const tradesBlock = (address) => {
+      const wrap = el("div", "tt-wrap");
+      wrap.append(el("p", "lk-loading", "Loading trades…"));
+      (async () => {
+        try {
+          const r = await fetch("/api/token/" + encodeURIComponent(address) + "/trades", { headers: { Accept: "application/json" } });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { wrap.replaceChildren(retryNote((d && d.error && d.error.message) || "Trades unavailable.", () => wrap.replaceWith(tradesBlock(address)))); return; }
+          wrap.replaceChildren();
+          const s = d.summary, tot = s.buyUsd + s.sellUsd || 1, bp = Math.round((s.buyUsd / tot) * 100);
+          const head = el("div", "tt-head");
+          head.append(el("h4", "", "Live trades"), el("span", "lk-dim", s.buys + s.sells + " trades · " + s.wallets + " wallets" + (s.since ? " · since " + ago(s.since) : "")));
+          const bar = el("div", "tt-bar");
+          const b1 = el("span", "tt-buy", "Buy " + usd(s.buyUsd) + " · " + bp + "%"), b2 = el("span", "tt-sell", "Sell " + usd(s.sellUsd) + " · " + (100 - bp) + "%");
+          b1.style.setProperty("--w", Math.max(8, Math.min(92, bp)) + "%");
+          bar.append(b1, b2);
+          wrap.append(head, bar);
+          const ul = el("ul", "tt-list");
+          for (const t of d.trades) {
+            const li = el("li", "tt-row " + t.kind + (t.whale ? " whale" : ""));
+            li.append(el("span", "tt-kind", t.kind === "buy" ? "BUY" : "SELL"));
+            li.append(el("span", "lk-num mono", usd(t.usd)));
+            li.append(el("span", "lk-dim mono", t.amount ? compact(t.amount) : ""));
+            const who = addrBtn(t.wallet);
+            who.classList.add("lk-dim");
+            li.append(who);
+            li.append(t.whale ? el("span", "tt-whale", "🐋 whale") : el("span", ""));
+            li.append(safeUrl(t.url) ? link(safeUrl(t.url), ago(t.time), "lk-time") : el("span", "lk-time", ago(t.time)));
+            ul.append(li);
+          }
+          wrap.append(ul, el("p", "lk-foot", "Whale = one trade worth at least " + usd(s.whaleUsd) + " (2% of the main pool's liquidity). Via GeckoTerminal."));
+        } catch { wrap.replaceChildren(retryNote("Trades unavailable.", () => wrap.replaceWith(tradesBlock(address)))); }
+      })();
+      return wrap;
     };
 
     const STATUS = { success: ["Success", "ok"], failed: ["Failed", "bad"], pending: ["Pending", ""], unknown: ["Unknown", ""] };
