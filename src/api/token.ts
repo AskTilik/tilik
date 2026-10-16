@@ -462,18 +462,41 @@ export function createTokenIntel(
     // Explorer facts, a few at a time (rate limits); a failure only drops those facts.
     const facts = new Map<string, { verified?: boolean; scam?: boolean; holders?: number }>();
     if (explorer) {
-      const budget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 0, explorerCalls: 0, maxExplorerCalls: 2 * picked.length };
-      for (let i = 0; i < picked.length; i += 4) {
-        await Promise.all(
-          picked.slice(i, i + 4).map(async ({ token }) => {
-            const [addr, tok] = await Promise.all([explorer.address(token, budget).catch(() => null), explorer.token(token, budget).catch(() => null)]);
-            facts.set(token, {
-              ...(typeof addr?.is_verified === "boolean" ? { verified: addr.is_verified } : {}),
-              ...(addr?.is_scam ? { scam: true } : {}),
-              ...(tok?.holders_count && /^\d+$/.test(tok.holders_count) ? { holders: Number(tok.holders_count) } : {}),
-            });
-          }),
-        );
+      const budget = { signal: AbortSignal.timeout(25_000), rpcCalls: 0, maxRpcCalls: 0, explorerCalls: 0, maxExplorerCalls: 4 * picked.length };
+      // The explorer allows ~5 requests/s: two tokens (four calls) at a time, one retry on a failed call.
+      const once = async <T>(fn: () => Promise<T | null>): Promise<T | null> => {
+        try {
+          return await fn();
+        } catch {
+          await new Promise((r) => setTimeout(r, 600));
+          return fn().catch(() => null);
+        }
+      };
+      // A small worker pool keeps ~5 explorer calls in flight (its rate limit) instead of waiting batch by batch.
+      const jobs = picked.flatMap(({ token }) => [
+        { token, kind: "address" as const, run: () => explorer.address(token, budget) },
+        { token, kind: "token" as const, run: () => explorer.token(token, budget) },
+      ]);
+      const got = new Map<string, { address?: Awaited<ReturnType<BlockscoutExplorer["address"]>>; token?: Awaited<ReturnType<BlockscoutExplorer["token"]>> }>();
+      let next = 0;
+      await Promise.all(
+        Array.from({ length: 5 }, async () => {
+          while (next < jobs.length) {
+            const job = jobs[next++]!;
+            const res = await once(job.run as () => Promise<any>);
+            const slot = got.get(job.token) ?? {};
+            if (job.kind === "address") slot.address = res; else slot.token = res;
+            got.set(job.token, slot);
+          }
+        }),
+      );
+      for (const { token } of picked) {
+        const g = got.get(token) ?? {};
+        facts.set(token, {
+          ...(typeof g.address?.is_verified === "boolean" ? { verified: g.address.is_verified } : {}),
+          ...(g.address?.is_scam ? { scam: true } : {}),
+          ...(g.token?.holders_count && /^\d+$/.test(g.token.holders_count) ? { holders: Number(g.token.holders_count) } : {}),
+        });
       }
     }
     const order: Record<Level, number> = { risk: 0, warn: 1, info: 2, ok: 3 };
