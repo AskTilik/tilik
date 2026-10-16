@@ -214,13 +214,19 @@ export function createTokenIntel(
 
   async function intel(address: string): Promise<TokenIntel> {
     const lower = address.toLowerCase();
-    const budget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 0, explorerCalls: 0, maxExplorerCalls: 2 };
-    const [profile, gtToken, gtPools, holdersRes] = await Promise.all([
+    const budget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 0, explorerCalls: 0, maxExplorerCalls: 4 };
+    const [profile, gtToken, gtPools, holdersRes, bsToken, bsAddr] = await Promise.all([
       lookup.get(address).catch(() => undefined),
       gecko.get<{ data?: { attributes?: Record<string, any> } }>(`/networks/${encodeURIComponent(net)}/tokens/${lower}`, "pools", gtBudget(1)).catch(() => null),
       gecko.get<{ data?: GtPool[] }>(`/networks/${encodeURIComponent(net)}/tokens/${lower}/pools?page=1`, "pools", gtBudget(1)).catch(() => null),
       explorer ? explorer.tokenHolders(lower, budget).catch(() => null) : Promise.resolve(null),
+      // Explorer fallbacks for when the RPC-backed profile is slow or down.
+      explorer ? explorer.token(lower, budget).catch(() => null) : Promise.resolve(null),
+      explorer ? explorer.address(lower, budget).catch(() => null) : Promise.resolve(null),
     ]);
+    const holderCount = typeof profile?.token?.holders === "number" ? profile.token.holders : bsToken?.holders_count && /^d+$/.test(bsToken.holders_count) ? Number(bsToken.holders_count) : undefined;
+    const verifiedSrc = typeof profile?.verified === "boolean" ? profile.verified : typeof bsAddr?.is_verified === "boolean" ? bsAddr.is_verified : undefined;
+    const scamFlag = Boolean(profile?.scam || bsAddr?.is_scam);
     if (profile && profile.kind !== "token" && !gtToken) {
       const e = new Error("not a token");
       e.name = "NotAToken";
@@ -281,9 +287,9 @@ export function createTokenIntel(
 
     // Signals — facts with a level, in plain words.
     const checks: Check[] = [];
-    if (profile?.scam) checks.push({ id: "scam", level: "risk", title: "Flagged by the explorer", detail: "The official explorer marks this address as a scam." });
-    if (profile?.verified === true) checks.push({ id: "verified", level: "ok", title: "Source code verified", detail: "The contract's source code is published and verified on the explorer." });
-    else if (profile?.verified === false) checks.push({ id: "verified", level: "warn", title: "Source code not verified", detail: "The contract's code is not published on the explorer, so it can't be read." });
+    if (scamFlag) checks.push({ id: "scam", level: "risk", title: "Flagged by the explorer", detail: "The official explorer marks this address as a scam." });
+    if (verifiedSrc === true) checks.push({ id: "verified", level: "ok", title: "Source code verified", detail: "The contract's source code is published and verified on the explorer." });
+    else if (verifiedSrc === false) checks.push({ id: "verified", level: "warn", title: "Source code not verified", detail: "The contract's code is not published on the explorer, so it can't be read." });
     if (market?.graduated) checks.push({ id: "graduated", level: "ok", title: "Graduated from its launchpad", detail: `The launch completed${market.graduated.at ? ` on ${market.graduated.at.slice(0, 10)}` : ""} and liquidity moved to a DEX pool.` });
     const main = pools.find((p) => p.main);
     if (!main) checks.push({ id: "liquidity", level: "risk", title: "No pool with liquidity found", detail: "GeckoTerminal lists no pool with liquidity for this token on Robinhood Chain." });
@@ -316,7 +322,7 @@ export function createTokenIntel(
         detail: `${holders.note} ${c >= 50 ? "Supply is concentrated in a few wallets." : "Supply is spread across holders."}`,
       });
     }
-    if (typeof profile?.token?.holders === "number") checks.push({ id: "holder-count", level: "info", title: `${profile.token.holders.toLocaleString("en-US")} holders`, detail: "Addresses holding a balance, as counted by the explorer." });
+    if (holderCount !== undefined) checks.push({ id: "holder-count", level: "info", title: `${holderCount.toLocaleString("en-US")} holders`, detail: "Addresses holding a balance, as counted by the explorer." });
     const firstPool = pools.map((p) => p.createdAt).filter((s): s is string => Boolean(s)).sort()[0];
     if (firstPool) {
       const hours = (now() - Date.parse(firstPool)) / 3_600_000;
@@ -331,10 +337,10 @@ export function createTokenIntel(
       token: {
         ...((clean(t.name) ?? profile?.token?.name) ? { name: clean(t.name) ?? profile?.token?.name } : {}),
         ...((clean(t.symbol, 20) ?? profile?.token?.symbol) ? { symbol: clean(t.symbol, 20) ?? profile?.token?.symbol } : {}),
-        ...(typeof profile?.token?.holders === "number" ? { holders: profile.token.holders } : {}),
+        ...(holderCount !== undefined ? { holders: holderCount } : {}),
         ...(profile?.token?.totalSupply ? { totalSupply: profile.token.totalSupply } : {}),
       },
-      ...(typeof profile?.verified === "boolean" ? { verified: profile.verified } : {}),
+      ...(verifiedSrc !== undefined ? { verified: verifiedSrc } : {}),
       ...(market ? { market } : {}),
       pools,
       ...(holders ? { holders } : {}),
