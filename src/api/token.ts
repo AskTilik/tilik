@@ -159,7 +159,7 @@ export function createTokenIntel(
           ? new BlockscoutExplorer(chain.explorerApiUrl, {
               timeoutMs: env.ONCHAIN_RPC_TIMEOUT_MS,
               liveTtlMs: 60_000,
-              stableTtlMs: 300_000,
+              stableTtlMs: 60_000, // holder counts move every minute on new tokens
               ...(chain.explorerApiKey ? { apiKey: chain.explorerApiKey } : {}),
             })
           : undefined));
