@@ -49,6 +49,14 @@ describe("landing page (static web/)", () => {
     assert.equal((await a.request("/chat", { method: "POST", body: JSON.stringify({ message: "hi" }) })).status, 401);
   });
 
+  it("serves the coming-soon page at /soon with its assets", async () => {
+    const a = app();
+    const page = await a.request("/soon");
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /<title>TILIK · Coming soon<\/title>/);
+    assert.equal((await a.request("/soon.css")).status, 200);
+  });
+
   it("serves the docs page at /docs with its assets", async () => {
     const a = app();
     const docs = await a.request("/docs");

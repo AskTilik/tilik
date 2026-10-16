@@ -113,6 +113,11 @@ export function createApp(container: Container): Hono<{ Variables: AppVariables 
     const hash = c.req.param("hash");
     return c.html(await page(`Transaction ${short(hash)} on Robinhood Chain · TILIK`, "Status, value, fee, parties and every token that moved, read straight from Robinhood Chain.", c.req.path));
   });
+  // Coming-soon page: a preview of the next update.
+  app.get("/soon", async (c) => {
+    c.header("Cache-Control", "no-cache");
+    return c.html(await readFile(join(webRoot, "soon.html"), "utf8"));
+  });
   // Documentation page.
   app.get("/docs", async (c) => {
     c.header("Cache-Control", "no-cache");

@@ -1015,3 +1015,6 @@ a.lk-time:hover, a.lk-strong:hover { color: var(--accent); }
   .cmp-h .lk-strong { font-size: 15px; }
 }
 /* Update 8 */
+a.pill { text-decoration: none; display: inline-block; }
+.road-updated a { color: var(--accent); }
+.menu-soon .new-badge { margin-left: auto; margin-right: 10px; }
