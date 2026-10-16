@@ -462,7 +462,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
         setTimeout(() => { copy.textContent = "Copy link"; }, 1800);
       });
       actions.append(copy);
-      if (kind !== "tx") actions.append(watchBtn(kind === "token" ? "token" : "wallet", value));
+      if (kind !== "tx" && kind !== "compare") actions.append(watchBtn(kind === "token" ? "token" : "wallet", value));
       if (kind === "address") {
         const pfb = el("button", "btn btn-ghost", "💰 Portfolio value");
         pfb.type = "button";
@@ -1010,6 +1010,111 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
     const pfPath = location.pathname.match(/^\/portfolio\/(0x[0-9a-fA-F]{40})\/?$/);
     if (pfPath) { document.getElementById("portfolio")?.scrollIntoView({ block: "start" }); runPortfolio(pfPath[1], { scroll: false }); }
     renderWatchlist();
+
+    // ── New launch feed (/api/launches) ──
+    const lfList = document.getElementById("launches-list");
+    if (lfList) {
+      const LV = { ok: "✓", info: "i", warn: "!", risk: "✕" };
+      const LV_LABEL = { ok: "Looks clean", info: "Check details", warn: "Caution", risk: "High risk" };
+      const drawLaunches = async () => {
+        try {
+          const r = await fetchMarket("/api/launches");
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { lfList.replaceChildren(retryNote((d && d.error && d.error.message) || "New launches are unavailable.", drawLaunches)); return; }
+          lfList.replaceChildren();
+          for (const l of d.launches) {
+            const card = el("article", "lf-card " + l.level);
+            const head = el("div", "lf-head");
+            const name = el("div", "lf-name");
+            name.append(el("b", "", l.token.symbol ? "$" + l.token.symbol : shortA(l.token.address)), el("span", "lk-dim", l.token.name || ""));
+            head.append(name, el("span", "lf-level " + l.level, LV_LABEL[l.level]));
+            card.append(head);
+            const st = el("div", "lf-stats mono");
+            st.append(
+              el("span", "", "liq " + (typeof l.pool.liquidityUsd === "number" ? usd(l.pool.liquidityUsd) : "—")),
+              el("span", "", "1h " + (l.pool.buys1h ?? 0) + "↑ " + (l.pool.sells1h ?? 0) + "↓"),
+              el("span", "", l.pool.createdAt ? ago(l.pool.createdAt) : ""),
+            );
+            card.append(st, el("p", "lf-dex lk-dim", l.pool.dex.replace(/-/g, " ")));
+            const fl = el("ul", "lf-flags");
+            for (const f of l.flags.slice(0, 4)) { const li = el("li", f.level); li.append(el("span", "ti-dot", LV[f.level]), el("span", "", f.text)); fl.append(li); }
+            card.append(fl);
+            const go = el("button", "btn btn-ghost lf-go", "Full check →");
+            go.type = "button";
+            go.addEventListener("click", () => { document.getElementById("lookup").scrollIntoView({ block: "start", behavior: "smooth" }); run(l.token.address, { scroll: false }); });
+            card.append(go);
+            lfList.append(card);
+          }
+          const up = document.getElementById("launches-updated");
+          if (up) up.textContent = "updated " + new Date(d.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        } catch { lfList.replaceChildren(retryNote("New launches are unavailable.", drawLaunches)); }
+      };
+      lfList.append(el("p", "lk-loading", "Checking the newest tokens…"));
+      drawLaunches();
+      setInterval(() => { if (!document.hidden) drawLaunches(); }, 90_000);
+    }
+
+    // ── Token compare (/api/token/:address × 2) ──
+    const cmpForm = document.getElementById("cmp-form");
+    if (cmpForm) {
+      const ca = document.getElementById("cmp-a"), cb = document.getElementById("cmp-b"), cout = document.getElementById("cmp-result");
+      const fetchToken = async (a) => {
+        const r = await fetchMarket("/api/token/" + encodeURIComponent(a));
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error((d && d.error && d.error.message) || "Token data unavailable.");
+        return d;
+      };
+      const flags = (t) => (t.checks || []).filter((c) => c.level === "warn" || c.level === "risk").length;
+      const ROWS = [
+        ["Price", (t) => t.market?.priceUsd, (v) => (v >= 1 ? "$" + v.toFixed(2) : "$" + v.toPrecision(3)), null],
+        ["Liquidity (all pools)", (t) => t.market?.liquidityUsd, usd, "high"],
+        ["Volume 24h", (t) => t.market?.volume24hUsd, usd, "high"],
+        ["FDV", (t) => t.market?.fdvUsd, usd, null],
+        ["Holders", (t) => t.token?.holders, (v) => num(v), "high"],
+        ["Top 10 holders own", (t) => t.holders?.top10Pct, (v) => v + "%", "low"],
+        ["Pools", (t) => t.pools?.length, (v) => String(v), null],
+        ["Main pool", (t) => (t.pools || []).find((p) => p.main)?.name, (v) => v, null],
+        ["Source code verified", (t) => (typeof t.verified === "boolean" ? (t.verified ? 1 : 0) : undefined), (v) => (v ? "Yes" : "No"), "high"],
+        ["Graduated from launchpad", (t) => (t.market ? (t.market.graduated ? 1 : 0) : undefined), (v) => (v ? "Yes" : "No"), null],
+        ["Warnings", (t) => flags(t), (v) => String(v), "low"],
+      ];
+      const runCompare = async (a, b, opts = {}) => {
+        a = String(a || "").trim(); b = String(b || "").trim();
+        ca.value = a; cb.value = b;
+        if (!ADDR.test(a) || !ADDR.test(b)) { cout.replaceChildren(el("p", "lk-error", "Enter two full token addresses (0x + 40 characters).")); return; }
+        if (a.toLowerCase() === b.toLowerCase()) { cout.replaceChildren(el("p", "lk-error", "Pick two different tokens.")); return; }
+        if (opts.scroll !== false) document.getElementById("compare").scrollIntoView({ block: "start", behavior: "smooth" });
+        cout.replaceChildren(el("p", "lk-loading", "Reading both tokens…"));
+        try {
+          const [ta, tb] = await Promise.all([fetchToken(a), fetchToken(b)]);
+          const card = el("article", "lk-card");
+          const table = el("div", "cmp-table");
+          const label = (t) => (t.token.symbol ? "$" + t.token.symbol : shortA(t.address));
+          const hd = (t) => { const c = el("div", "cmp-h"); const n = addrBtn(t.address, label(t)); n.classList.add("lk-strong"); c.append(n, el("span", "lk-dim", t.token.name || "")); return c; };
+          table.append(el("div", "cmp-h cmp-k", ""), hd(ta), hd(tb));
+          for (const [name, get, fmt, better] of ROWS) {
+            const va = get(ta), vb = get(tb);
+            if (va === undefined && vb === undefined) continue;
+            table.append(el("div", "cmp-k", name));
+            for (const [v, o] of [[va, vb], [vb, va]]) {
+              const win = better && typeof v === "number" && typeof o === "number" && v !== o && (better === "high" ? v > o : v < o);
+              table.append(el("div", "cmp-v mono" + (win ? " win" : ""), v === undefined || v === null ? "—" : fmt(v)));
+            }
+          }
+          card.append(table);
+          card.append(el("p", "lk-foot", "Green = the stronger figure of the two. Facts from GeckoTerminal and the official explorer, not advice."));
+          card.append(actionsFor({ label: "Ask TILIK to compare them", question: "Compare tokens " + ta.address + " and " + tb.address + " on Robinhood Chain" }, null, "compare", ta.address + "/" + tb.address));
+          cout.replaceChildren(card);
+          try { history.replaceState(null, "", "/compare/" + ta.address + "/" + tb.address); } catch { /* sandboxed */ }
+        } catch (err) {
+          cout.replaceChildren(retryNote(err.message || "Comparison unavailable.", () => runCompare(a, b, { scroll: false })));
+        }
+      };
+      cmpForm.addEventListener("submit", (e) => { e.preventDefault(); runCompare(ca.value, cb.value); });
+      for (const btn of document.querySelectorAll("[data-compare]")) btn.addEventListener("click", () => { const [x, y] = btn.dataset.compare.split(","); runCompare(x, y); });
+      const cm = location.pathname.match(/^\/compare\/(0x[0-9a-fA-F]{40})\/(0x[0-9a-fA-F]{40})\/?$/);
+      if (cm) { document.getElementById("compare")?.scrollIntoView({ block: "start" }); runCompare(cm[1], cm[2], { scroll: false }); }
+    }
 
     // $TILIK live card (same endpoint; the server caches it for everyone).
     const live = document.getElementById("tilik-live");

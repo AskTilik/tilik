@@ -97,6 +97,16 @@ export interface Trades {
   generatedAt: string;
 }
 
+export interface Launch {
+  token: { address: string; symbol?: string; name?: string };
+  pool: { name: string; dex: string; address: string; url: string; createdAt?: string; liquidityUsd?: number; buys1h?: number; sells1h?: number; feePct?: number };
+  holders?: number;
+  verified?: boolean;
+  /** Plain facts, worst first. Not a rating. */
+  flags: { level: Level; text: string }[];
+  level: Level;
+}
+
 export interface RadarPool extends PoolInfo {
   token: { address: string; symbol?: string };
 }
@@ -423,7 +433,80 @@ export function createTokenIntel(
     };
   }
 
+  /** Newest pools on the chain, each with a quick, sourced safety read (GeckoTerminal + the explorer). */
+  async function launches(): Promise<{ launches: Launch[]; generatedAt: string }> {
+    const res = await gecko.get<{ data?: GtPool[]; included?: { id?: string; attributes?: Record<string, any> }[] }>(
+      `/networks/${encodeURIComponent(net)}/new_pools?page=1&include=base_token`,
+      "pools",
+      gtBudget(1),
+    );
+    if (!res) throw new Error("launches unavailable");
+    const meta = new Map((res.body.included ?? []).map((t) => [String(t.id ?? ""), t.attributes ?? {}]));
+    const seen = new Set<string>();
+    const picked: { pool: PoolInfo; a: Record<string, any>; token: string; tm: Record<string, any> }[] = [];
+    for (const p of res.body.data ?? []) {
+      const pool = toPool(p);
+      const id = p.relationships?.base_token?.data?.id ?? "";
+      const token = id.slice(id.indexOf("_") + 1).toLowerCase();
+      if (!pool || !/^0x[0-9a-f]{40}$/.test(token) || seen.has(token)) continue;
+      seen.add(token);
+      picked.push({ pool, a: p.attributes ?? {}, token, tm: meta.get(id) ?? {} });
+      if (picked.length >= 12) break;
+    }
+    // Explorer facts, a few at a time (rate limits); a failure only drops those facts.
+    const facts = new Map<string, { verified?: boolean; scam?: boolean; holders?: number }>();
+    if (explorer) {
+      const budget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 0, explorerCalls: 0, maxExplorerCalls: 2 * picked.length };
+      for (let i = 0; i < picked.length; i += 4) {
+        await Promise.all(
+          picked.slice(i, i + 4).map(async ({ token }) => {
+            const [addr, tok] = await Promise.all([explorer.address(token, budget).catch(() => null), explorer.token(token, budget).catch(() => null)]);
+            facts.set(token, {
+              ...(typeof addr?.is_verified === "boolean" ? { verified: addr.is_verified } : {}),
+              ...(addr?.is_scam ? { scam: true } : {}),
+              ...(tok?.holders_count && /^\d+$/.test(tok.holders_count) ? { holders: Number(tok.holders_count) } : {}),
+            });
+          }),
+        );
+      }
+    }
+    const order: Record<Level, number> = { risk: 0, warn: 1, info: 2, ok: 3 };
+    const launches = picked.map(({ pool, a, token, tm }): Launch => {
+      const fx = facts.get(token) ?? {};
+      const buys = num(a.transactions?.h1?.buys), sells = num(a.transactions?.h1?.sells), liq = pool.liquidityUsd ?? 0;
+      const flags: Launch["flags"] = [];
+      if (fx.scam) flags.push({ level: "risk", text: "Flagged as a scam by the explorer" });
+      if ((pool.feePct ?? 0) >= 10) flags.push({ level: "risk", text: `${pool.feePct}% pool fee` });
+      if (liq < 1_000) flags.push({ level: "risk", text: `Very low liquidity (${usd(liq)})` });
+      else if (liq < 5_000) flags.push({ level: "warn", text: `Low liquidity (${usd(liq)})` });
+      if (fx.verified === false) flags.push({ level: "warn", text: "Source code not verified" });
+      if ((buys ?? 0) >= 5 && (sells ?? 0) === 0) flags.push({ level: "warn", text: "No sells yet in the last hour" });
+      if (fx.holders !== undefined && fx.holders < 25) flags.push({ level: "info", text: `${fx.holders} holders` });
+      if (/pons-v2$|launch/i.test(pool.dex)) flags.push({ level: "info", text: "Still on its launchpad" });
+      if (fx.verified === true) flags.push({ level: "ok", text: "Source code verified" });
+      if (!flags.length) flags.push({ level: "info", text: "No red flags found in the quick check" });
+      flags.sort((x, y) => order[x.level] - order[y.level]);
+      return {
+        token: { address: toChecksumAddress(token), ...(clean(tm.symbol, 20) ? { symbol: clean(tm.symbol, 20)! } : {}), ...(clean(tm.name, 40) ? { name: clean(tm.name, 40)! } : {}) },
+        pool: {
+          name: pool.name, dex: pool.dex, address: pool.address, url: pool.url,
+          ...(pool.createdAt ? { createdAt: pool.createdAt } : {}),
+          ...(pool.liquidityUsd !== undefined ? { liquidityUsd: pool.liquidityUsd } : {}),
+          ...(buys !== undefined ? { buys1h: buys } : {}),
+          ...(sells !== undefined ? { sells1h: sells } : {}),
+          ...(pool.feePct !== undefined ? { feePct: pool.feePct } : {}),
+        },
+        ...(fx.holders !== undefined ? { holders: fx.holders } : {}),
+        ...(fx.verified !== undefined ? { verified: fx.verified } : {}),
+        flags,
+        level: flags[0]!.level,
+      };
+    });
+    return { launches, generatedAt: new Date(now()).toISOString() };
+  }
+
   return {
+    launches: () => cached("launches", 90_000, launches),
     chart: (address: string, tf: Timeframe) => cached(`chart:${address.toLowerCase()}:${tf}`, 120_000, () => chart(address, tf)),
     trades: (address: string) => cached(`trades:${address.toLowerCase()}`, 30_000, () => trades(address)),
     get: (address: string) => cached(`tok:${address.toLowerCase()}`, TOKEN_TTL_MS, () => intel(address)),
@@ -481,6 +564,19 @@ export function tokenRoutes(env: Env, limiter: ClientRateLimiter, intel: ReturnT
   };
   app.get("/api/token/:address/chart", sub("chart"));
   app.get("/api/token/:address/trades", sub("trades"));
+  app.get("/api/launches", async (c) => {
+    c.header("Cache-Control", "no-store");
+    if (!env.MARKET_ENABLED) return c.json({ error: { kind: "unavailable", message: "Market data is turned off." } }, 503);
+    const block = limited(c);
+    if (block) return block;
+    try {
+      const body = await intel.launches();
+      c.header("Cache-Control", "public, max-age=15, s-maxage=60, stale-while-revalidate=240");
+      return c.json(body);
+    } catch {
+      return c.json({ error: { kind: "upstream", message: "New launches could not be loaded right now." } }, 502);
+    }
+  });
   app.get("/api/radar", async (c) => {
     c.header("Cache-Control", "no-store");
     if (!env.MARKET_ENABLED) return c.json({ error: { kind: "unavailable", message: "Market data is turned off." } }, 503);

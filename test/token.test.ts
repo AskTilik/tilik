@@ -61,6 +61,15 @@ function gt(path: string): Response {
       ],
     });
   if (path.startsWith("/networks/robinhood/trending_pools")) return jsonResponse({ data: [gtPool(MAIN, "TILIK / WETH", "pons-v2-dex", "23931"), gtPool(SIDE, "JUNK / WETH 90%", "uniswap-v4-robinhood", "5000")] });
+  if (path.startsWith("/networks/robinhood/new_pools?page=1&include=base_token"))
+    return jsonResponse({
+      data: [
+        gtPool(MAIN, "TILIK / WETH", "pons-v2-dex", "23931", new Date().toISOString()),
+        gtPool(SIDE, "JUNK / WETH 90%", "uniswap-v4-robinhood", "12", new Date().toISOString(), WHALE),
+        gtPool(`0x${"77".repeat(32)}`, "TILIK / USDG", "uniswap-v4-robinhood", "50", new Date().toISOString()), // same token again
+      ],
+      included: [{ id: `robinhood_${TOKEN.toLowerCase()}`, attributes: { symbol: "TILIK", name: "Tilik" } }, { id: `robinhood_${WHALE.toLowerCase()}`, attributes: { symbol: "JUNK", name: "Junk" } }],
+    });
   if (path.startsWith("/networks/robinhood/new_pools")) return jsonResponse({ data: [gtPool(SIDE, "NEW / WETH", "pons-v2", "0", new Date().toISOString())] });
   return new Response("{}", { status: 404 });
 }
@@ -161,6 +170,23 @@ describe("token chart and trades", () => {
   });
 });
 
+describe("new launch feed", () => {
+  it("lists each new token once with plain flags, worst first", async () => {
+    const res = await app().request("/api/launches");
+    assert.equal(res.status, 200);
+    const d: any = await res.json();
+    assert.equal(d.launches.length, 2);
+    const [tilik, junk] = d.launches;
+    assert.equal(tilik.token.symbol, "TILIK");
+    assert.equal(tilik.holders, 227);
+    assert.equal(tilik.verified, true);
+    assert.equal(tilik.level, "ok");
+    assert.equal(junk.level, "risk");
+    assert.deepEqual(junk.flags.slice(0, 2).map((f: any) => f.text), ["90% pool fee", "Very low liquidity ($12)"]);
+    assert.match(res.headers.get("cache-control") ?? "", /s-maxage/);
+  });
+});
+
 describe("shareable lookup pages", () => {
   it("serve the landing page with a title and preview text for the token, address or transaction", async () => {
     const a = app();
@@ -173,5 +199,8 @@ describe("shareable lookup pages", () => {
     const tx = await a.request(`/tx/0x${"ab".repeat(32)}`);
     assert.match(await tx.text(), /<title>Transaction 0xabab…abab on Robinhood Chain · TILIK<\/title>/);
     assert.equal((await a.request("/token/0x123")).status, 404);
+    const cmp = await a.request(`/compare/${TOKEN}/${WHALE}`);
+    assert.equal(cmp.status, 200);
+    assert.match(await cmp.text(), /<title>\$TILIK vs /);
   });
 });

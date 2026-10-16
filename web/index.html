@@ -53,6 +53,8 @@
           <li><a href="#lookup">Address lookup</a></li>
           <li><a href="#portfolio">Portfolio &amp; watchlist</a></li>
           <li><a href="#radar">Token radar</a></li>
+          <li><a href="#launches">New launches</a></li>
+          <li><a href="#compare">Token compare</a></li>
           <li><a href="#glossary">Glossary</a></li>
           <li><a href="#trust">Trust &amp; status</a></li>
           <li><a href="#roadmap">Roadmap</a></li>
@@ -91,11 +93,13 @@
       <li><a href="#lookup"><span class="mono">06</span>Address lookup</a></li>
       <li><a href="#portfolio"><span class="mono">07</span>Portfolio</a></li>
       <li><a href="#radar"><span class="mono">08</span>Token radar</a></li>
-      <li><a href="#glossary"><span class="mono">09</span>Glossary</a></li>
-      <li><a href="#trust"><span class="mono">10</span>Trust</a></li>
-      <li><a href="#status"><span class="mono">11</span>Status</a></li>
-      <li><a href="#roadmap"><span class="mono">12</span>Roadmap</a></li>
-      <li><a href="#faq"><span class="mono">13</span>FAQ</a></li>
+      <li><a href="#launches"><span class="mono">09</span>New launches</a></li>
+      <li><a href="#compare"><span class="mono">10</span>Compare</a></li>
+      <li><a href="#glossary"><span class="mono">11</span>Glossary</a></li>
+      <li><a href="#trust"><span class="mono">12</span>Trust</a></li>
+      <li><a href="#status"><span class="mono">13</span>Status</a></li>
+      <li><a href="#roadmap"><span class="mono">14</span>Roadmap</a></li>
+      <li><a href="#faq"><span class="mono">15</span>FAQ</a></li>
     </ol>
   </nav>
   <aside class="quick" id="quick" aria-label="Quick actions">
@@ -420,6 +424,39 @@
       <p class="preview-note">Pool data via GeckoTerminal. Pools with a fee of 10% or more are hidden. New tokens are risky — this is data, not advice.</p>
     </section>
 
+    <!-- New launch feed: /api/launches (GeckoTerminal + explorer; no AI) -->
+    <section class="section tint cont" id="launches" aria-labelledby="launches-title">
+      <div class="section-head status-head">
+        <div>
+          <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span>NEW LAUNCH FEED <span class="new-badge">NEW</span></p>
+          <h2 id="launches-title">Every new token, checked on arrival</h2>
+          <p class="section-lede">The newest pools on Robinhood Chain, each with a quick safety read: liquidity, fees, verified code, holders, first trades. Refreshes every minute.</p>
+        </div>
+        <span class="pulse-updated mono" id="launches-updated" aria-live="polite"></span>
+      </div>
+      <div class="lf-grid" id="launches-list" aria-live="polite"></div>
+      <p class="preview-note">Quick checks from GeckoTerminal and the official explorer. They are facts, not a rating. New tokens are high risk — not financial advice.</p>
+    </section>
+
+    <!-- Token compare: two /api/token reads side by side (no AI) -->
+    <section class="section tint cont" id="compare" aria-labelledby="compare-title">
+      <div class="section-head">
+        <p class="eyebrow">TOKEN COMPARE <span class="new-badge">NEW</span></p>
+        <h2 id="compare-title">Two tokens, side by side</h2>
+        <p class="section-lede">Paste two token addresses and see liquidity, holders, market data and safety signals next to each other. Every comparison has its own link.</p>
+      </div>
+      <form class="cmp-form" id="cmp-form" autocomplete="off" novalidate>
+        <label class="sr-only" for="cmp-a">First token address</label>
+        <input class="lookup-input mono" id="cmp-a" type="text" spellcheck="false" maxlength="42" placeholder="0x… token A" />
+        <span class="cmp-vs" aria-hidden="true">vs</span>
+        <label class="sr-only" for="cmp-b">Second token address</label>
+        <input class="lookup-input mono" id="cmp-b" type="text" spellcheck="false" maxlength="42" placeholder="0x… token B" />
+        <button class="btn btn-primary" type="submit">Compare</button>
+      </form>
+      <p class="lookup-try">Try: <button type="button" class="chip-btn mono" data-compare="0x160b29692f83a2f76d4fee8f04d05f9fdc9aca96,0x0bd7d308f8e1639fab988df18a8011f41eacad73">$TILIK vs WETH</button></p>
+      <div class="cmp-result" id="cmp-result" aria-live="polite"></div>
+    </section>
+
     <!-- Glossary: every term can be explained by TILIK in the chat -->
     <section class="section tint cont" id="glossary" aria-labelledby="glossary-title">
       <div class="section-head status-head">
@@ -515,7 +552,8 @@
             <li class="reveal"><b>Automatic model fallback</b><span>OpenRouter, then Gemini, then Groq — each tried once.</span></li>
             <li class="reveal"><b>Live pulse</b><span>Chain, top pools and headlines right on this page.</span></li>
             <li class="reveal"><b>Public launch</b><span>Hosted on its own domain at asktilik.com.</span></li>
-            <li class="reveal"><b>Portfolio value &amp; watchlist <span class="new-badge">NEW</span></b><span>What any wallet holds and is worth in USD, and a watchlist of your tokens and wallets.</span></li>
+            <li class="reveal"><b>New launch feed &amp; token compare <span class="new-badge">NEW</span></b><span>Every new token safety-checked on arrival, and any two tokens side by side. Voted by the community.</span></li>
+            <li class="reveal"><b>Portfolio value &amp; watchlist</b><span>What any wallet holds and is worth in USD, and a watchlist of your tokens and wallets.</span></li>
             <li class="reveal"><b>Token safety check &amp; radar</b><span>Every pool with its real liquidity, top holders, plain safety signals, and what's trending.</span></li>
             <li class="reveal"><b>Address &amp; transaction lookup</b><span>Balances, holdings, holders and transfers for any address or transaction — each with a link to share.</span></li>
           </ul>
@@ -604,6 +642,8 @@
           <a href="#lookup">Address lookup</a>
           <a href="#portfolio">Portfolio</a>
           <a href="#radar">Token radar</a>
+          <a href="#launches">New launches</a>
+          <a href="#compare">Token compare</a>
           <a href="#glossary">Glossary</a>
           <a href="#roadmap">Roadmap</a>
           <a href="#faq">FAQ</a>

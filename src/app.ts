@@ -86,6 +86,13 @@ export function createApp(container: Container): Hono<{ Variables: AppVariables 
   };
   const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
   const quick = <T,>(p: Promise<T>) => Promise.race([p, new Promise<undefined>((r) => setTimeout(() => r(undefined), 2500))]).catch(() => undefined);
+  app.get("/compare/:a{0x[0-9a-fA-F]{40}}/:b{0x[0-9a-fA-F]{40}}", async (c) => {
+    c.header("Cache-Control", "no-cache");
+    const [a, b] = [c.req.param("a"), c.req.param("b")];
+    const [pa, pb] = env.ONCHAIN_ENABLED ? await Promise.all([quick(lookup.get(a)), quick(lookup.get(b))]) : [undefined, undefined];
+    const n = (p: typeof pa, x: string) => (p?.token?.symbol ? "$" + p.token.symbol : short(x));
+    return c.html(await page(`${n(pa, a)} vs ${n(pb, b)} on Robinhood Chain · TILIK`, "Two tokens side by side: liquidity, holders, safety signals and market data, read live from Robinhood Chain.", c.req.path));
+  });
   app.get("/portfolio/:addr{0x[0-9a-fA-F]{40}}", async (c) => {
     c.header("Cache-Control", "no-cache");
     const addr = c.req.param("addr");
