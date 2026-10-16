@@ -224,7 +224,7 @@ export function createTokenIntel(
       explorer ? explorer.token(lower, budget).catch(() => null) : Promise.resolve(null),
       explorer ? explorer.address(lower, budget).catch(() => null) : Promise.resolve(null),
     ]);
-    const holderCount = typeof profile?.token?.holders === "number" ? profile.token.holders : bsToken?.holders_count && /^d+$/.test(bsToken.holders_count) ? Number(bsToken.holders_count) : undefined;
+    const holderCount = typeof profile?.token?.holders === "number" ? profile.token.holders : bsToken?.holders_count && /^\d+$/.test(bsToken.holders_count) ? Number(bsToken.holders_count) : undefined;
     const verifiedSrc = typeof profile?.verified === "boolean" ? profile.verified : typeof bsAddr?.is_verified === "boolean" ? bsAddr.is_verified : undefined;
     const scamFlag = Boolean(profile?.scam || bsAddr?.is_scam);
     if (profile && profile.kind !== "token" && !gtToken) {
