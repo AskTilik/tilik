@@ -1298,19 +1298,20 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
     // $TILIK live card (same endpoint; the server caches it for everyone).
     const live = document.getElementById("tilik-live");
     if (live) {
-      fetch("/api/address/" + live.dataset.token, { headers: { Accept: "application/json" } })
+      // Always shown; numbers fill in when the chain answers (a busy moment upstream retries instead of hiding the card).
+      const fill = (attempt = 0) => fetch("/api/address/" + live.dataset.token, { headers: { Accept: "application/json" } })
         .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)
         .then((p) => {
-          if (!p || !p.token) return;
+          if (!p || !p.token) { if (attempt < 3) setTimeout(() => fill(attempt + 1), 3000 * (attempt + 1)); return; }
           const set = (k, v) => { const n = live.querySelector('[data-k="' + k + '"]'); if (n && v) n.textContent = v; };
           set("holders", typeof p.token.holders === "number" ? num(p.token.holders) : "");
           set("supply", p.token.totalSupply ? compact(Number(p.token.totalSupply.replace(/,/g, ""))) : "");
           set("txs", p.counters && typeof p.counters.transactions === "number" ? num(p.counters.transactions) : "");
           const last = (p.transfers || [])[0];
           set("last", last && last.time ? ago(last.time) : "");
-          live.hidden = false;
-        })
-        .catch(() => {});
+        });
+      fill();
       live.querySelector("[data-open]")?.addEventListener("click", () => run(live.dataset.token));
     }
   }
