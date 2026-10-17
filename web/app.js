@@ -565,7 +565,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
           m.append(stat("FDV", usdS(t.market.fdvUsd)));
           box.append(m);
         }
-        box.append(chartBlock(address), tradesBlock(address));
+        box.append(chartBlock(address), holdersBlock(address), tradesBlock(address));
         if (t.dev) {
           const dv = t.dev, devBox = el("div", "dv-wrap");
           const head = el("div", "dv-head");
@@ -757,6 +757,71 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       }
       addEventListener("resize", () => { if (current && wrap.isConnected) drawCandles(canvas, current); });
       requestAnimationFrame(() => load("15m"));
+      return wrap;
+    };
+
+    // ── Holder growth: holder count over time (/api/token/:address/holders-history) ──
+    const drawHolders = (canvas, pts) => {
+      const dpr = Math.min(2, devicePixelRatio || 1), w = canvas.clientWidth, h = canvas.clientHeight;
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+      const g = canvas.getContext("2d");
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, w, h);
+      if (pts.length < 2) return;
+      const padR = 56, padB = 22, top = 10, pw = w - padR, ph = h - padB - top;
+      const t0 = Date.parse(pts[0].t), t1 = Date.parse(pts[pts.length - 1].t), ts = t1 - t0 || 1;
+      const hi = Math.max(...pts.map((p) => p.holders)), lo = Math.min(...pts.map((p) => p.holders)), span = hi - lo || 1;
+      const x = (p) => ((Date.parse(p.t) - t0) / ts) * pw, y = (v) => top + (1 - (v - lo) / span) * ph;
+      g.strokeStyle = "rgba(255,255,255,0.06)"; g.lineWidth = 1;
+      g.fillStyle = "rgba(255,255,255,0.45)"; g.font = "11px JetBrains Mono, monospace"; g.textBaseline = "middle"; g.textAlign = "left";
+      for (let i = 0; i <= 3; i++) {
+        const v = lo + (span * i) / 3, yy = y(v);
+        g.beginPath(); g.moveTo(0, yy); g.lineTo(pw, yy); g.stroke();
+        g.fillText(String(Math.round(v)), pw + 8, yy);
+      }
+      g.textAlign = "center"; g.textBaseline = "alphabetic";
+      for (const p of [pts[0], pts[Math.floor(pts.length / 2)], pts[pts.length - 1]]) {
+        const d = new Date(p.t);
+        g.fillText(d.toLocaleDateString(undefined, { month: "short", day: "numeric" }), Math.min(pw - 24, Math.max(24, x(p))), h - 6);
+      }
+      const grad = g.createLinearGradient(0, top, 0, top + ph);
+      grad.addColorStop(0, "rgba(124,255,107,0.28)"); grad.addColorStop(1, "rgba(124,255,107,0)");
+      g.beginPath(); g.moveTo(x(pts[0]), y(pts[0].holders));
+      for (const p of pts) g.lineTo(x(p), y(p.holders));
+      g.lineTo(x(pts[pts.length - 1]), top + ph); g.lineTo(x(pts[0]), top + ph); g.closePath();
+      g.fillStyle = grad; g.fill();
+      g.beginPath(); g.moveTo(x(pts[0]), y(pts[0].holders));
+      for (const p of pts) g.lineTo(x(p), y(p.holders));
+      g.strokeStyle = "#7cff6b"; g.lineWidth = 2; g.stroke();
+      const last = pts[pts.length - 1];
+      g.fillStyle = "#7cff6b"; g.beginPath(); g.arc(x(last), y(last.holders), 3.5, 0, Math.PI * 2); g.fill();
+    };
+    const holdersBlock = (address) => {
+      const wrap = el("div", "tc-wrap hg-wrap");
+      const head = el("div", "tc-head");
+      const info = el("span", "lk-dim tc-info", "");
+      head.append(el("h4", "", "Holder growth"), info);
+      const canvas = el("canvas", "tc-canvas hg-canvas");
+      canvas.setAttribute("aria-label", "Holder count over time");
+      const note = el("p", "lk-foot", "Reading holder history… the first look at a token rebuilds it from every transfer, which can take a little while.");
+      wrap.append(head, canvas, note);
+      let pts = null;
+      (async () => {
+        try {
+          const r = await fetch("/api/token/" + encodeURIComponent(address) + "/holders-history", { headers: { Accept: "application/json" } });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { if (r.status === 503) wrap.remove(); else note.replaceChildren(retryNote((d && d.error && d.error.message) || "Holder history unavailable.", () => wrap.replaceWith(holdersBlock(address)))); return; }
+          pts = d.points || [];
+          if (pts.length < 2) { note.textContent = "Tracking started: the chart fills in as TILIK records this token's holder count."; return; }
+          drawHolders(canvas, pts);
+          const last = pts[pts.length - 1];
+          const sign = (n) => (n > 0 ? "+" : n < 0 ? "−" : "±") + Math.abs(n);
+          info.textContent = last.holders + " now" + (typeof d.change24h === "number" ? " · " + sign(d.change24h) + " in 24h" : "") + (typeof d.change7d === "number" ? " · " + sign(d.change7d) + " in 7d" : "");
+          info.className = "tc-info " + (typeof d.change24h !== "number" || d.change24h === 0 ? "lk-dim" : d.change24h > 0 ? "up" : "down");
+          note.textContent = (d.rebuilt ? "Since launch: rebuilt from every Transfer event on Robinhood Chain (addresses with a balance above zero). " : "") + "Then recorded from the official explorer as the token is checked, and daily.";
+        } catch { note.replaceChildren(retryNote("Holder history unavailable.", () => wrap.replaceWith(holdersBlock(address)))); }
+      })();
+      addEventListener("resize", () => { if (pts && pts.length > 1 && wrap.isConnected) drawHolders(canvas, pts); });
       return wrap;
     };
 
@@ -1544,6 +1609,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
           data: res.data ?? {},
           answer: res.answer ?? answer,
           sources: [...sources.values()],
+          responseId: res.id,
         });
         follow(near);
       },
@@ -1572,7 +1638,36 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
     parts.push(markdown(view.answer ?? "", sources));
     const src = renderSources([...sources.values()].sort((a, b) => a.id - b.id));
     if (src) parts.push(src);
+    if (view.sharedFrom) parts.push(el("p", "share-note", "Shared answer · as TILIK answered it. Ask a follow-up below."));
+    else if (view.responseId) parts.push(shareButton(view.responseId));
     body.replaceChildren(...parts);
+  }
+
+  // ── Share: a permanent link to this exact answer (/a/<id>) ──
+  function shareButton(responseId) {
+    const row = el("div", "share-row");
+    const b = el("button", "chip-btn mono", "Share answer");
+    b.type = "button";
+    const note = el("span", "share-msg", "");
+    b.addEventListener("click", async () => {
+      b.disabled = true;
+      note.textContent = "Creating link…";
+      try {
+        const r = await fetch("/api/share", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ id: responseId }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { note.textContent = (d && d.error && d.error.message) || "Sharing failed."; b.disabled = false; return; }
+        const url = location.origin + d.url;
+        let copied = false;
+        try { await navigator.clipboard.writeText(url); copied = true; } catch { /* clipboard blocked */ }
+        note.replaceChildren(el("span", "", copied ? "Link copied: " : "Link: "), link(url, url.replace(/^https?:\/\//, ""), "share-link mono"));
+        b.textContent = "Shared";
+      } catch {
+        note.textContent = "Sharing failed. Try again.";
+        b.disabled = false;
+      }
+    });
+    row.append(b, note);
+    return row;
   }
 
   // ── Conversation view (restored from storage) ─────
@@ -1612,6 +1707,8 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       data: m.metadata?.data ?? {},
       answer: m.content,
       sources: m.sources ?? [],
+      responseId: m.metadata?.responseId,
+      sharedFrom: m.metadata?.sharedFrom,
     });
     return root;
   };
@@ -2110,7 +2207,28 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
   // ── Boot: restore a deep-linked conversation (never auto-submits anything) ──
   renderHistory();
   const deepLink = location.pathname.match(CHAT_PATH);
-  if (deepLink) {
+  const sharedLink = location.pathname.match(/^\/a\/([A-Za-z0-9]{10})\/?$/);
+  if (sharedLink) {
+    // A shared answer opens as its own conversation here, so the visitor can ask a follow-up.
+    (async () => {
+      const sid = sharedLink[1], known = prefs.get("tilik.shared." + sid);
+      if (known && store.get(known)) { openChat({ conversationId: known, push: false }); return; }
+      try {
+        const r = await fetch("/api/share/" + sid, { headers: { Accept: "application/json" } });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.response) throw new Error("missing");
+        const c = store.create();
+        store.addMessage(c.id, { role: "user", content: d.question });
+        store.addMessage(c.id, assistantMessageFrom({ ...d.response, sharedFrom: sid }));
+        prefs.set("tilik.shared." + sid, c.id);
+        openChat({ conversationId: c.id, push: false });
+      } catch {
+        try { history.replaceState(null, "", "/"); } catch { /* sandboxed */ }
+        openChat({});
+        log.prepend(el("p", "msg-error", "That shared answer could not be found."));
+      }
+    })();
+  } else if (deepLink) {
     if (!store.get(deepLink[1])) setPath(null, false); // unknown here (history is per-browser): start fresh
     openChat({ conversationId: store.get(deepLink[1]) ? deepLink[1] : undefined, push: false });
   } else {

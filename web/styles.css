@@ -1039,3 +1039,10 @@ a.pill { text-decoration: none; display: inline-block; }
 .rc-list { margin: 0; padding: 0; list-style: none; }
 .rc-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 13px; }
 .rc-list li > :nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hg-canvas { height: 200px; }
+
+/* Share answer */
+.share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
+.share-msg { font-size: 13px; color: var(--dim); }
+.share-link { color: var(--accent, #e4ff1a); }
+.share-note { margin-top: 14px; font-size: 13px; color: var(--dim); }

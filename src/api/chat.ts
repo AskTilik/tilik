@@ -5,7 +5,7 @@ import type { Container } from "../container.js";
 import { VeyraError } from "../core/errors.js";
 import type { EngineEvent } from "../core/events.js";
 import { classifyIntent } from "../router/intent.js";
-import { ChatRequestSchema, type ChatRequest, type ErrorBody } from "../types/api.js";
+import { ChatRequestSchema, type ChatRequest, type ErrorBody, type VeyraResponse } from "../types/api.js";
 import { clientKey, tooManyRequests, type AppVariables } from "./http-guards.js";
 import { describeError } from "./errors.js";
 
@@ -19,7 +19,11 @@ export function isHeavyRequest(req: Pick<ChatRequest, "message" | "mode">): bool
   return intents.includes("research") || intents.filter((i) => LIVE.has(i)).length >= 3;
 }
 
-export function chatRoutes({ env, engine, logger, clientLimiter }: Container): Hono<{ Variables: AppVariables }> {
+export function chatRoutes(
+  { env, engine, logger, clientLimiter }: Container,
+  /** Called with every finished answer (e.g. to keep it shareable). Never fails the request. */
+  onAnswer?: (question: string, response: VeyraResponse) => Promise<void>,
+): Hono<{ Variables: AppVariables }> {
   const app = new Hono<{ Variables: AppVariables }>();
   const production = env.NODE_ENV === "production";
   const limited = rateLimitEnabled(env);
@@ -61,7 +65,9 @@ export function chatRoutes({ env, engine, logger, clientLimiter }: Container): H
 
     if (!req.stream) {
       try {
-        return c.json(await engine.ask(req, signal, runOpts));
+        const res = await engine.ask(req, signal, runOpts);
+        await onAnswer?.(req.message, res).catch(() => {});
+        return c.json(res);
       } catch (err) {
         const { status, body: errBody } = toPublic(err);
         return c.json(errBody, status);
@@ -77,7 +83,10 @@ export function chatRoutes({ env, engine, logger, clientLimiter }: Container): H
       try {
         for await (const event of engine.askStream(req, signal, runOpts)) {
           if (c.req.raw.signal.aborted) break; // client gone: stop (the shared signal already aborted the work)
-          if (event.type === "response.completed") completed = true;
+          if (event.type === "response.completed") {
+            completed = true;
+            await onAnswer?.(req.message, event.response).catch(() => {});
+          }
           for (const out of req.streamFormat === "v1" ? toV1(event) : toV2(event)) {
             await stream.writeSSE({ event: out.event, data: JSON.stringify(out.data) });
           }

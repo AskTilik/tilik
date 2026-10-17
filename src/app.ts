@@ -12,6 +12,8 @@ import { addressRoutes, createAddressLookup } from "./api/address.js";
 import { createTokenIntel, tokenRoutes } from "./api/token.js";
 import { createPortfolio, portfolioRoutes } from "./api/portfolio.js";
 import { createRecap, recapRoutes } from "./api/recap.js";
+import { createHolderTracker, holderRoutes } from "./api/holders.js";
+import { createShares, SHARE_ID, shareRoutes } from "./api/shares.js";
 import { pulseRoutes } from "./api/pulse.js";
 import { systemRoutes } from "./api/system.js";
 import { rateLimitEnabled } from "./config/env.js";
@@ -64,11 +66,15 @@ export function createApp(container: Container): Hono<{ Variables: AppVariables 
   const lookup = createAddressLookup(env, logger);
   const intel = createTokenIntel(env, logger, lookup);
   app.route("/", addressRoutes(env, logger, clientLimiter, lookup));
-  app.route("/", tokenRoutes(env, clientLimiter, intel));
+  const holderTracker = createHolderTracker(env, logger);
+  app.route("/", holderRoutes(env, clientLimiter, holderTracker));
+  app.route("/", tokenRoutes(env, clientLimiter, intel, (address, t) => holderTracker.record(address, t.token.holders)));
   const portfolio = createPortfolio(env, logger);
   app.route("/", portfolioRoutes(env, clientLimiter, portfolio));
   app.route("/", recapRoutes(env, clientLimiter, createRecap(env, logger, portfolio.prices)));
-  app.route("/", chatRoutes(container));
+  const shares = createShares(env, logger);
+  app.route("/", shareRoutes(env, clientLimiter, shares));
+  app.route("/", chatRoutes(container, (q, res) => shares.keep(q, res)));
   // Landing page (static files in /web). Same path from src/ (dev) and dist/ (build).
   const webRoot = fileURLToPath(new URL("../web", import.meta.url));
   // Deep link to a conversation: same page; the conversation itself lives in the browser's storage.
@@ -89,6 +95,21 @@ export function createApp(container: Container): Hono<{ Variables: AppVariables 
   };
   const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
   const quick = <T,>(p: Promise<T>) => Promise.race([p, new Promise<undefined>((r) => setTimeout(() => r(undefined), 2500))]).catch(() => undefined);
+  // Shared answer: the app page, titled with the question; the browser loads the answer from /api/share/:id.
+  app.get("/a/:id{[A-Za-z0-9]{10}}", async (c) => {
+    c.header("Cache-Control", "no-cache");
+    const id = c.req.param("id");
+    const s = SHARE_ID.test(id) && shares.enabled ? await quick(shares.get(id)) : undefined;
+    const q = s?.question.replace(/\s+/g, " ").trim();
+    const plain = s?.response.answer.replace(/\[\d+(?:\s*,\s*\d+)*\]/g, "").replace(/[#*_`>]+/g, "").replace(/\s+/g, " ").trim();
+    return c.html(
+      await page(
+        q ? `${q.length > 80 ? `${q.slice(0, 79)}…` : q} · TILIK` : "Shared answer · TILIK",
+        plain ? (plain.length > 180 ? `${plain.slice(0, 179)}…` : plain) : "An answer from TILIK, with every source it used.",
+        c.req.path,
+      ),
+    );
+  });
   app.get("/compare/:a{0x[0-9a-fA-F]{40}}/:b{0x[0-9a-fA-F]{40}}", async (c) => {
     c.header("Cache-Control", "no-cache");
     const [a, b] = [c.req.param("a"), c.req.param("b")];

@@ -194,6 +194,8 @@ export function assistantMessageFrom(response) {
       data: compactData(response?.data),
       references: extractReferences(response),
       timings: response?.timings ? { totalMs: response.timings.totalMs } : undefined,
+      responseId: typeof response?.id === "string" ? response.id : undefined,
+      sharedFrom: typeof response?.sharedFrom === "string" ? response.sharedFrom : undefined,
     },
   };
 }

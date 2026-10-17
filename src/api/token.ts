@@ -670,7 +670,13 @@ export function createTokenIntel(
   };
 }
 
-export function tokenRoutes(env: Env, limiter: ClientRateLimiter, intel: ReturnType<typeof createTokenIntel>): Hono<{ Variables: AppVariables }> {
+export function tokenRoutes(
+  env: Env,
+  limiter: ClientRateLimiter,
+  intel: ReturnType<typeof createTokenIntel>,
+  /** Called after each successful token check (e.g. to record the holder count). Never fails the request. */
+  onIntel?: (address: string, t: TokenIntel) => Promise<void>,
+): Hono<{ Variables: AppVariables }> {
   const app = new Hono<{ Variables: AppVariables }>();
   const limited = (c: Parameters<typeof clientKey>[0]) => {
     if (!rateLimitEnabled(env)) return null;
@@ -686,6 +692,7 @@ export function tokenRoutes(env: Env, limiter: ClientRateLimiter, intel: ReturnT
     if (block) return block;
     try {
       const body = await intel.get(check.address);
+      await onIntel?.(check.address, body).catch(() => {});
       // Public data, same for everyone: let the CDN serve repeats so GeckoTerminal sees ~1 call per minute.
       c.header("Cache-Control", "public, max-age=15, s-maxage=60, stale-while-revalidate=240");
       return c.json(body);

@@ -91,6 +91,12 @@ const EnvSchema = z.object({
   /** Development only: registers a clearly-labelled mock LLM as the last fallback. */
   VEYRA_DEV_MOCK_LLM: flag,
 
+  // ── Storage: Upstash Redis (holder history, shared answers) ─────────────
+  UPSTASH_REDIS_REST_URL: z.url().optional(),
+  UPSTASH_REDIS_REST_TOKEN: optional,
+  /** Vercel sends it as a Bearer token on cron calls; cron routes refuse other callers. */
+  CRON_SECRET: optional,
+
   // ── Web search (Phase 4) ─────────────────────────────────────────────────
   TAVILY_API_KEY: optional,
   TAVILY_BASE_URL: z.url().default("https://api.tavily.com"),
@@ -272,6 +278,8 @@ export const SECRET_ENV_KEYS = [
   "GITHUB_TOKEN",
   "ROBINHOOD_EXPLORER_API_KEY",
   "ETHERSCAN_API_KEY",
+  "UPSTASH_REDIS_REST_TOKEN",
+  "CRON_SECRET",
 ] as const;
 
 /** RPC URLs often embed a provider key in the path or query (e.g. Alchemy). Treated as secrets too. */
@@ -324,6 +332,7 @@ export function configStatus(env: Env): ConfigStatus[] {
     { group: "llm (≥1 required to answer)", name: "Groq", status: has(env.GROQ_API_KEY) },
     { group: "llm (≥1 required to answer)", name: "Groq backup key", status: has(env.GROQ_API_KEY_BACKUP), note: "used only if the main Groq key is rejected" },
     { group: "llm (≥1 required to answer)", name: "Dev mock LLM", status: env.VEYRA_DEV_MOCK_LLM ? "configured" : "disabled", note: "development only" },
+    { group: "storage (optional)", name: "Upstash Redis", status: has(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN ? "yes" : undefined) },
     { group: "web (optional)", name: "Tavily", status: has(env.TAVILY_API_KEY) },
     { group: "web (optional)", name: "Exa", status: has(env.EXA_API_KEY) },
     { group: "web (optional)", name: "Jina", status: env.JINA_API_KEY ? "configured" : env.JINA_ALLOW_KEYLESS ? "default" : "missing", note: env.JINA_API_KEY ? undefined : "keyless, rate-limited" },
