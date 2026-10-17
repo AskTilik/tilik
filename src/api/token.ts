@@ -4,11 +4,14 @@ import { robinhoodChain, type ChainConfig } from "../config/chains.js";
 import { rateLimitEnabled, type Env } from "../config/env.js";
 import type { Logger } from "../core/logger.js";
 import { toChecksumAddress, validateAddress } from "../providers/blockchain/evm.js";
-import { BlockscoutExplorer } from "../providers/blockchain/explorer.js";
+import { BlockscoutExplorer, type BsTransaction } from "../providers/blockchain/explorer.js";
+import { EvmRpcProvider, JsonRpcClient } from "../providers/blockchain/rpc.js";
+import type { BlockchainProvider } from "../providers/blockchain/types.js";
 import { GeckoTerminalClient } from "../providers/market/geckoterminal.js";
 import type { ClientRateLimiter } from "../security/rate-limit.js";
 import type { AddressProfile } from "./address.js";
 import { clientKey, tooManyRequests, type AppVariables } from "./http-guards.js";
+import { readLiquidityLock, readSnipers, type LiquidityLock, type Snipers } from "./launch-safety.js";
 
 /**
  * Token intelligence for the landing page — no model involved:
@@ -82,6 +85,8 @@ export interface TokenIntel {
   pools: PoolInfo[];
   holders?: { top: HolderInfo[]; top10Pct: number; note: string };
   dev?: DevInfo;
+  liquidityLock?: LiquidityLock;
+  snipers?: Snipers;
   checks: Check[];
   sources: string[];
   generatedAt: string;
@@ -152,10 +157,12 @@ export function createTokenIntel(
   env: Env,
   logger: Logger,
   lookup: { get(address: string): Promise<AddressProfile> },
-  deps: { chain?: ChainConfig; gecko?: GeckoTerminalClient; explorer?: BlockscoutExplorer | null; now?: () => number } = {},
+  deps: { chain?: ChainConfig; gecko?: GeckoTerminalClient; explorer?: BlockscoutExplorer | null; provider?: BlockchainProvider | null; now?: () => number } = {},
 ) {
   const now = deps.now ?? Date.now;
   const chain = deps.chain ?? robinhoodChain(env);
+  const rpcOpts = { timeoutMs: env.ONCHAIN_RPC_TIMEOUT_MS, retries: 1, stableTtlMs: 300_000, liveTtlMs: 30_000 };
+  const provider = deps.provider === null ? undefined : (deps.provider ?? new EvmRpcProvider(chain, new JsonRpcClient(chain.rpcUrls, rpcOpts), rpcOpts));
   const net = env.GECKOTERMINAL_NETWORK;
   const gecko =
     deps.gecko ??
@@ -229,11 +236,10 @@ export function createTokenIntel(
   };
 
   /** Who launched the token (the creation transaction's sender) and what that wallet did with it since. */
-  async function readDev(token: string, creationTx: string | undefined, supply: number | undefined): Promise<DevInfo | undefined> {
-    if (!explorer || !creationTx) return undefined;
-    const budget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 0, explorerCalls: 0, maxExplorerCalls: 5 };
-    const tx = await explorer.transaction(creationTx, budget);
-    const dev = tx?.from?.hash;
+  async function readDev(token: string, tx: BsTransaction | null, supply: number | undefined): Promise<DevInfo | undefined> {
+    if (!explorer || !tx) return undefined;
+    const budget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 0, explorerCalls: 0, maxExplorerCalls: 4 };
+    const dev = tx.from?.hash;
     if (!dev || !/^0x[0-9a-fA-F]{40}$/.test(dev)) return undefined;
     const d = dev.toLowerCase();
     const viaContract = tx.to && tx.to.hash.toLowerCase() !== token ? tx.to : null;
@@ -288,7 +294,6 @@ export function createTokenIntel(
     const verifiedSrc = typeof profile?.verified === "boolean" ? profile.verified : typeof bsAddr?.is_verified === "boolean" ? bsAddr.is_verified : undefined;
     const scamFlag = Boolean(profile?.scam || bsAddr?.is_scam);
     const supplyAll = num(gtToken?.body.data?.attributes?.total_supply) ?? (bsToken?.total_supply && /^\d+$/.test(bsToken.total_supply) ? Number(bsToken.total_supply) : undefined);
-    const dev = await readDev(lower, bsAddr?.creation_transaction_hash ?? undefined, supplyAll).catch(() => undefined);
     if (profile && profile.kind !== "token" && !gtToken) {
       const e = new Error("not a token");
       e.name = "NotAToken";
@@ -333,6 +338,25 @@ export function createTokenIntel(
       const top10Pct = Math.round(top.filter((h) => !h.role).slice(0, 10).reduce((s, h) => s + h.pct, 0) * 100) / 100;
       holders = { top: top.slice(0, 10), top10Pct, note: "Top 10 holders excluding pools, lockers and burn addresses." };
     }
+
+    // Launch safety: who launched it, whether the liquidity is locked, who bought in the first minute.
+    const creation =
+      explorer && bsAddr?.creation_transaction_hash
+        ? await explorer.transaction(bsAddr.creation_transaction_hash, { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 0, explorerCalls: 0, maxExplorerCalls: 1 }).catch(() => null)
+        : null;
+    const chainBudget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 30, explorerCalls: 0, maxExplorerCalls: 0 };
+    const supplyBig = bsToken?.total_supply && /^\d+$/.test(bsToken.total_supply) ? BigInt(bsToken.total_supply) : supplyAll ? BigInt(Math.round(supplyAll)) : undefined;
+    const pooled = new Set([...poolSet, ...(holders?.top ?? []).filter((h) => h.role === "pool").map((h) => h.address.toLowerCase())]);
+    const onChain = async () => {
+      // One after the other: the RPC throttles bursts, and the lock read is only a few calls.
+      const lock = provider ? await readLiquidityLock(provider, lower, pools.find((p) => p.main)?.address, chainBudget).catch(() => undefined) : undefined;
+      const early =
+        provider && creation?.block_number && supplyBig
+          ? await readSnipers(provider, { token: lower, launchBlock: creation.block_number, supply: supplyBig, pools: pooled, ...(creation.from?.hash ? { dev: creation.from.hash } : {}) }, chainBudget).catch(() => undefined)
+          : undefined;
+      return [lock, early] as const;
+    };
+    const [dev, [liquidityLock, snipers]] = await Promise.all([readDev(lower, creation, supplyAll).catch(() => undefined), onChain()]);
 
     const poolSum = pools.reduce((s, p) => s + (p.liquidityUsd ?? 0), 0);
     const liquidity = Math.max(num(t.total_reserve_in_usd) ?? 0, poolSum) || undefined;
@@ -390,6 +414,31 @@ export function createTokenIntel(
       const hours = (now() - Date.parse(firstPool)) / 3_600_000;
       if (hours < 72) checks.push({ id: "age", level: "info", title: `New token: first pool ${hours < 1 ? "under an hour" : `${Math.round(hours)}h`} old`, detail: "Young tokens move fast and have little history to judge by." });
     }
+    if (liquidityLock) {
+      const ok = liquidityLock.held && liquidityLock.hasLiquidity;
+      checks.push(
+        ok
+          ? {
+              id: "lp-lock",
+              level: "ok",
+              title: "Liquidity locked forever",
+              detail: `Pool position #${liquidityLock.positionId} is held by ${liquidityLock.lockerName}. ${liquidityLock.note}${liquidityLock.mainPool === true ? " It is the main pool." : liquidityLock.mainPool === false ? " It is not the deepest pool." : ""}`,
+            }
+          : { id: "lp-lock", level: "risk", title: "Locked liquidity position is empty or moved", detail: `The locker no longer holds a funded position #${liquidityLock.positionId}.` },
+      );
+    }
+    if (snipers) {
+      if (snipers.buyers === 0) checks.push({ id: "snipers", level: "ok", title: "No buys in the first minute", detail: "Nobody bought in the first 60 seconds after launch." });
+      else {
+        const hold = snipers.stillHoldPct;
+        checks.push({
+          id: "snipers",
+          level: hold !== undefined && hold >= 15 ? "warn" : "info",
+          title: `${snipers.buyers} wallet${snipers.buyers === 1 ? "" : "s"} bought ${snipers.boughtPct}% in the first minute`,
+          detail: hold !== undefined ? `They still hold ${hold}% of supply (${snipers.checked} largest checked); ${snipers.soldAll} sold or moved everything.` : "Their current balances could not be read.",
+        });
+      }
+    }
     if (dev) {
       if ((dev.launches ?? 0) >= 5) checks.push({ id: "dev-launches", level: "warn", title: `Deployer launched ${dev.launches}${dev.launches === 50 ? "+" : ""} tokens`, detail: "This wallet launches tokens often. Check how its earlier launches did." });
       if (dev.holdsPct !== undefined) {
@@ -416,6 +465,8 @@ export function createTokenIntel(
       pools,
       ...(holders ? { holders } : {}),
       ...(dev ? { dev } : {}),
+      ...(liquidityLock ? { liquidityLock } : {}),
+      ...(snipers ? { snipers } : {}),
       checks,
       sources,
       generatedAt: new Date(now()).toISOString(),

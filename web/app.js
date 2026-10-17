@@ -585,6 +585,47 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
           devBox.append(el("p", "lk-foot", "From the token's creation transaction and the dev wallet's transfers on the official explorer."));
           box.append(devBox);
         }
+        if (t.liquidityLock) {
+          const lk = t.liquidityLock, lkBox = el("div", "dv-wrap");
+          const head = el("div", "dv-head");
+          const good = lk.held && lk.hasLiquidity;
+          head.append(el("h4", "", "Liquidity lock"), el("span", "sf-badge " + (good ? "ok" : "risk"), good ? "LOCKED FOREVER" : "CHECK"));
+          lkBox.append(head);
+          const st = el("div", "lk-stats");
+          st.append(stat("Locker", lk.lockerName, "verified contract"));
+          st.append(stat("Position", "#" + lk.positionId, lk.held ? "held by the locker" : "not held"));
+          st.append(stat("Liquidity", lk.hasLiquidity ? "In the pool" : "Empty", lk.mainPool === true ? "main pool" : lk.mainPool === false ? "not the main pool" : ""));
+          st.append(stat("Withdraw", "Impossible", "no withdraw function"));
+          lkBox.append(st);
+          lkBox.append(el("p", "lk-foot", "Read live from the locker and the Uniswap v4 position contract on Robinhood Chain."));
+          box.append(lkBox);
+        }
+        if (t.snipers) {
+          const sn = t.snipers, snBox = el("div", "dv-wrap");
+          const head = el("div", "dv-head");
+          head.append(el("h4", "", "First-minute buyers"), el("span", "lk-dim", "bought within " + sn.windowSec + "s of launch"));
+          snBox.append(head);
+          const st = el("div", "lk-stats");
+          st.append(stat("Wallets", String(sn.buyers), "bought early"));
+          st.append(stat("Bought", sn.boughtPct + "%", "of supply"));
+          st.append(stat("Still hold", sn.stillHoldPct === undefined ? "—" : sn.stillHoldPct + "%", sn.checked + " largest checked"));
+          st.append(stat("Exited", String(sn.soldAll), "sold or moved all"));
+          snBox.append(st);
+          if (sn.top && sn.top.length) {
+            const ul = el("ul", "sn-list");
+            for (const w of sn.top) {
+              const li = el("li");
+              const who = addrBtn(w.address);
+              who.classList.add("lk-strong");
+              li.append(who, el("span", "lk-dim", "bought " + w.boughtPct + "%" + (w.dev ? " · dev" : "")));
+              li.append(el("span", "lk-num mono" + (w.sold ? " sn-out" : ""), w.holdsPct === undefined ? "—" : w.sold ? "exited" : "holds " + w.holdsPct + "%"));
+              ul.append(li);
+            }
+            snBox.append(ul);
+          }
+          snBox.append(el("p", "lk-foot", "From the token's Transfer events in its first minute and live balances on Robinhood Chain. Routers are skipped; an empty balance can mean sold or moved."));
+          box.append(snBox);
+        }
         const checks = el("div", "ti-checks");
         checks.append(el("h4", "", "Safety check"));
         const ul = el("ul");
