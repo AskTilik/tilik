@@ -61,14 +61,17 @@ export interface Snipers {
   top: SniperInfo[];
 }
 
+/** One retry after a short pause: public RPCs and the explorer answer short bursts with 429. */
+export const again = <T>(fn: () => Promise<T>, ms = 1200): Promise<T> => fn().catch(() => new Promise((r) => setTimeout(r, ms)).then(fn));
+
 const pct = (v: bigint, supply: bigint) => (supply > 0n ? Math.round(Number((v * 10_000n) / supply)) / 100 : 0);
 
 export async function readLiquidityLock(provider: BlockchainProvider, token: string, mainPoolId: string | undefined, budget: ChainBudget): Promise<LiquidityLock | undefined> {
   const t = token.toLowerCase();
   for (const lk of KNOWN_LOCKERS) {
-    const locked = decodeUint(await provider.call(lk.address, encodeAddressArg(sel("isLocked(address)"), t), budget));
+    const locked = decodeUint(await again(() => provider.call(lk.address, encodeAddressArg(sel("isLocked(address)"), t), budget)));
     if (locked !== 1n) continue;
-    const id = decodeUint(await provider.call(lk.address, encodeAddressArg(sel("lockedPositions(address)"), t), budget)) ?? 0n;
+    const id = decodeUint(await again(() => provider.call(lk.address, encodeAddressArg(sel("lockedPositions(address)"), t), budget))) ?? 0n;
     const [owner, liq, info] = await Promise.all([
       provider.call(lk.positionManager, `${sel("ownerOf(uint256)")}${word(id)}`, budget).catch(() => "0x"),
       provider.call(lk.positionManager, `${sel("getPositionLiquidity(uint256)")}${word(id)}`, budget).catch(() => "0x"),
@@ -111,14 +114,14 @@ export async function readSnipers(
   const windowSec = input.windowSec ?? 60;
   const t = input.token.toLowerCase();
   // Block times vary; measure them over the first 600 blocks to turn seconds into blocks.
-  const [b0, b1] = await Promise.all([provider.block(input.launchBlock, budget), provider.block(input.launchBlock + 600, budget).catch(() => null)]);
+  const [b0, b1] = await Promise.all([again(() => provider.block(input.launchBlock, budget)), again(() => provider.block(input.launchBlock + 600, budget)).catch(() => null)]);
   let span = 600;
   if (b0 && b1) {
     const secs = (Date.parse(b1.timestamp) - Date.parse(b0.timestamp)) / 1000;
     if (secs > 0) span = Math.round((600 * windowSec) / secs);
   }
   span = Math.min(Math.max(span, 5), 5000);
-  const logs = await provider.logs({ address: t, topics: [TRANSFER], fromBlock: input.launchBlock, toBlock: input.launchBlock + span }, budget);
+  const logs = await again(() => provider.logs({ address: t, topics: [TRANSFER], fromBlock: input.launchBlock, toBlock: input.launchBlock + span }, budget));
 
   const addr = (topic: string | undefined) => (topic ? `0x${topic.slice(-40)}`.toLowerCase() : ZERO);
   const sources = new Set([...input.pools].map((p) => p.toLowerCase()));

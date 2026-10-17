@@ -11,6 +11,7 @@ import { clientKey, corsPolicy, requestLog, securityHeaders, tooManyRequests, ty
 import { addressRoutes, createAddressLookup } from "./api/address.js";
 import { createTokenIntel, tokenRoutes } from "./api/token.js";
 import { createPortfolio, portfolioRoutes } from "./api/portfolio.js";
+import { createRecap, recapRoutes } from "./api/recap.js";
 import { pulseRoutes } from "./api/pulse.js";
 import { systemRoutes } from "./api/system.js";
 import { rateLimitEnabled } from "./config/env.js";
@@ -64,7 +65,9 @@ export function createApp(container: Container): Hono<{ Variables: AppVariables 
   const intel = createTokenIntel(env, logger, lookup);
   app.route("/", addressRoutes(env, logger, clientLimiter, lookup));
   app.route("/", tokenRoutes(env, clientLimiter, intel));
-  app.route("/", portfolioRoutes(env, clientLimiter, createPortfolio(env, logger)));
+  const portfolio = createPortfolio(env, logger);
+  app.route("/", portfolioRoutes(env, clientLimiter, portfolio));
+  app.route("/", recapRoutes(env, clientLimiter, createRecap(env, logger, portfolio.prices)));
   app.route("/", chatRoutes(container));
   // Landing page (static files in /web). Same path from src/ (dev) and dist/ (build).
   const webRoot = fileURLToPath(new URL("../web", import.meta.url));

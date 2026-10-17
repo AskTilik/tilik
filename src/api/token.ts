@@ -11,7 +11,7 @@ import { GeckoTerminalClient } from "../providers/market/geckoterminal.js";
 import type { ClientRateLimiter } from "../security/rate-limit.js";
 import type { AddressProfile } from "./address.js";
 import { clientKey, tooManyRequests, type AppVariables } from "./http-guards.js";
-import { readLiquidityLock, readSnipers, type LiquidityLock, type Snipers } from "./launch-safety.js";
+import { again, readLiquidityLock, readSnipers, type LiquidityLock, type Snipers } from "./launch-safety.js";
 
 /**
  * Token intelligence for the landing page — no model involved:
@@ -238,16 +238,16 @@ export function createTokenIntel(
   /** Who launched the token (the creation transaction's sender) and what that wallet did with it since. */
   async function readDev(token: string, tx: BsTransaction | null, supply: number | undefined): Promise<DevInfo | undefined> {
     if (!explorer || !tx) return undefined;
-    const budget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 0, explorerCalls: 0, maxExplorerCalls: 4 };
+    const budget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 0, explorerCalls: 0, maxExplorerCalls: 8 };
     const dev = tx.from?.hash;
     if (!dev || !/^0x[0-9a-fA-F]{40}$/.test(dev)) return undefined;
     const d = dev.toLowerCase();
     const viaContract = tx.to && tx.to.hash.toLowerCase() !== token ? tx.to : null;
     const [moves, held, recent, counters] = await Promise.all([
-      explorer.addressTokenTransfersOf(d, token, budget).catch(() => null),
-      explorer.addressTokens(d, budget).catch(() => null),
-      viaContract ? explorer.addressTransactions(d, budget).catch(() => null) : Promise.resolve(null),
-      explorer.addressCounters(d, budget).catch(() => null),
+      again(() => explorer.addressTokenTransfersOf(d, token, budget)).catch(() => null),
+      again(() => explorer.addressTokens(d, budget)).catch(() => null),
+      viaContract ? again(() => explorer.addressTransactions(d, budget)).catch(() => null) : Promise.resolve(null),
+      again(() => explorer.addressCounters(d, budget)).catch(() => null),
     ]);
     let received = 0, burned = 0, sentOut = 0;
     for (const m of moves?.items ?? []) {
@@ -342,9 +342,12 @@ export function createTokenIntel(
     // Launch safety: who launched it, whether the liquidity is locked, who bought in the first minute.
     const creation =
       explorer && bsAddr?.creation_transaction_hash
-        ? await explorer.transaction(bsAddr.creation_transaction_hash, { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 0, explorerCalls: 0, maxExplorerCalls: 1 }).catch(() => null)
+        ? await (async () => {
+            const b = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 0, explorerCalls: 0, maxExplorerCalls: 2 };
+            return again(() => explorer.transaction(bsAddr.creation_transaction_hash!, b)).catch(() => null);
+          })()
         : null;
-    const chainBudget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 30, explorerCalls: 0, maxExplorerCalls: 0 };
+    const chainBudget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 45, explorerCalls: 0, maxExplorerCalls: 0 };
     const supplyBig = bsToken?.total_supply && /^\d+$/.test(bsToken.total_supply) ? BigInt(bsToken.total_supply) : supplyAll ? BigInt(Math.round(supplyAll)) : undefined;
     const pooled = new Set([...poolSet, ...(holders?.top ?? []).filter((h) => h.role === "pool").map((h) => h.address.toLowerCase())]);
     const onChain = async () => {

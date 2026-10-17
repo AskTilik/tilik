@@ -1032,3 +1032,10 @@ a.pill { text-decoration: none; display: inline-block; }
 .sn-list { margin: 0; padding: 0; list-style: none; }
 .sn-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 13px; }
 .sn-list .sn-out { opacity: .55; }
+
+/* Weekly recap */
+.rc-wrap { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.rc-sub { margin: 6px 0 0; font-size: 13px; color: var(--dim); font-weight: 600; }
+.rc-list { margin: 0; padding: 0; list-style: none; }
+.rc-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.rc-list li > :nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
