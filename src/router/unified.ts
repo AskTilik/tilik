@@ -47,7 +47,7 @@ export function familyOfIntent(i: Intent): Family | undefined {
 }
 
 export function familyOfCapability(c: Capability): Family {
-  return c === "chain.data" ? "onchain" : c === "market.data" ? "market" : c === "github.repo" ? "github" : "web";
+  return c === "chain.data" || c === "token.check" ? "onchain" : c === "market.data" ? "market" : c === "github.repo" ? "github" : "web";
 }
 
 export function unifyIntents(intents: Intent[]): UnifiedIntent[] {
@@ -66,6 +66,7 @@ export type Freshness = "live" | "recent" | "moderate" | "stable";
 export const CAPABILITY_INFO: Record<string, { label: string; freshness: Freshness; tool: string }> = {
   "chain.data": { label: "Checking Robinhood Chain…", freshness: "live", tool: "direct blockchain data (RPC/explorer)" },
   "market.data": { label: "Analyzing market data…", freshness: "live", tool: "DEX market data (GeckoTerminal)" },
+  "token.check": { label: "Running TILIK token check…", freshness: "live", tool: "TILIK token check (lock, dev wallet, early buyers, holders)" },
   "news.feed": { label: "Checking news feeds…", freshness: "recent", tool: "RSS news feeds" },
   "web.search": { label: "Searching the web…", freshness: "recent", tool: "web search" },
   "github.repo": { label: "Reading repository…", freshness: "moderate", tool: "GitHub API" },
@@ -136,6 +137,8 @@ function whyFor(s: PlannedStep, kind: string, intent: IntentResult): string {
           : "The question is about Robinhood Chain activity — read live chain data rather than web articles.";
     case "market.data":
       return e.addresses.length ? `Market data (price, liquidity, volume) for ${e.addresses[0]} from DEX pools.` : "The question asks about prices, liquidity, volume or pools — fetch live DEX market data.";
+    case "token.check":
+      return "A token is mentioned — run the same token check as asktilik.com/token: liquidity lock, dev wallet, first-minute buyers and holder growth.";
     case "github.repo":
       return `Repository ${s.query && e.githubRepos[0] ? `${e.githubRepos[0].owner}/${e.githubRepos[0].repo}` : "mentioned"} — read it through the GitHub API (only the parts the question needs).`;
     case "news.feed":

@@ -7,6 +7,7 @@ import { createExaTool } from "../providers/search/exa.js";
 import { createTavilyTool } from "../providers/search/tavily.js";
 import { createFirecrawlTool } from "../providers/web/firecrawl.js";
 import { createJinaTool } from "../providers/web/jina.js";
+import { createTokenCheckTool } from "../api/token-check-tool.js";
 import type { AnyTool, Capability } from "./types.js";
 
 const COST_ORDER = { free: 0, low: 1, paid: 2 } as const;
@@ -53,6 +54,7 @@ const TOOL_FACTORIES: ToolFactory[] = [
   (env) => createRssTool(env),
   (env) => createRobinhoodChainTool(env),
   (env) => createGeckoTerminalTool(env),
+  (env) => createTokenCheckTool(env),
 ];
 
 export function createToolRegistry(env: Env, factories: ToolFactory[] = TOOL_FACTORIES): ToolRegistry {
