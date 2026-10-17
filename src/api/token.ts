@@ -57,6 +57,21 @@ export interface HolderInfo {
   /** Pools, lockers and burn addresses are not "holders" in the usual sense. */
   role?: "pool" | "locker" | "burn";
 }
+/** The wallet that launched the token, and what it has done with it since. All counts come from the explorer. */
+export interface DevInfo {
+  address: string;
+  /** The contract the launch went through (e.g. a launchpad factory), if not a plain deployment. */
+  launchedVia?: string;
+  launchedAt?: string;
+  /** Launches by this wallet through the same contract and method, in its latest transactions (at most one page). */
+  launches?: number;
+  holdsPct?: number;
+  received: number;
+  burned: number;
+  sentOut: number;
+  walletTxs?: number;
+  url?: string;
+}
 export interface TokenIntel {
   address: string;
   chain: { name: string; chainId: number };
@@ -66,6 +81,7 @@ export interface TokenIntel {
   market?: { priceUsd?: number; fdvUsd?: number; liquidityUsd?: number; volume24hUsd?: number; graduated?: { at?: string; pool?: string } };
   pools: PoolInfo[];
   holders?: { top: HolderInfo[]; top10Pct: number; note: string };
+  dev?: DevInfo;
   checks: Check[];
   sources: string[];
   generatedAt: string;
@@ -212,6 +228,50 @@ export function createTokenIntel(
     };
   };
 
+  /** Who launched the token (the creation transaction's sender) and what that wallet did with it since. */
+  async function readDev(token: string, creationTx: string | undefined, supply: number | undefined): Promise<DevInfo | undefined> {
+    if (!explorer || !creationTx) return undefined;
+    const budget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 0, explorerCalls: 0, maxExplorerCalls: 5 };
+    const tx = await explorer.transaction(creationTx, budget);
+    const dev = tx?.from?.hash;
+    if (!dev || !/^0x[0-9a-fA-F]{40}$/.test(dev)) return undefined;
+    const d = dev.toLowerCase();
+    const viaContract = tx.to && tx.to.hash.toLowerCase() !== token ? tx.to : null;
+    const [moves, held, recent, counters] = await Promise.all([
+      explorer.addressTokenTransfersOf(d, token, budget).catch(() => null),
+      explorer.addressTokens(d, budget).catch(() => null),
+      viaContract ? explorer.addressTransactions(d, budget).catch(() => null) : Promise.resolve(null),
+      explorer.addressCounters(d, budget).catch(() => null),
+    ]);
+    let received = 0, burned = 0, sentOut = 0;
+    for (const m of moves?.items ?? []) {
+      if (m.token.address_hash.toLowerCase() !== token) continue;
+      const from = m.from.hash.toLowerCase(), to = m.to.hash.toLowerCase();
+      if (to === d && from !== d) received++;
+      else if (from === d && BURN.has(to)) burned++;
+      else if (from === d) sentOut++;
+    }
+    let holdsPct: number | undefined;
+    if (held) {
+      const h = (held.items ?? []).find((x) => x.token.address_hash.toLowerCase() === token);
+      const v = h?.value && /^\d+$/.test(h.value) ? Number(h.value) : 0;
+      if (supply && supply > 0) holdsPct = Math.round((v / supply) * 10_000) / 100;
+    }
+    const launches = viaContract && recent ? (recent.items ?? []).filter((x) => x.to?.hash.toLowerCase() === viaContract.hash.toLowerCase() && x.method === tx.method).length : undefined;
+    const label = viaContract ? clean(viaContract.name ?? viaContract.public_tags?.[0]?.display_name ?? undefined, 40) ?? toChecksumAddress(viaContract.hash) : undefined;
+    const wtx = counters?.transactions_count && /^\d+$/.test(counters.transactions_count) ? Number(counters.transactions_count) : undefined;
+    return {
+      address: toChecksumAddress(dev),
+      ...(label ? { launchedVia: label } : {}),
+      ...(tx.timestamp ? { launchedAt: tx.timestamp } : {}),
+      ...(launches !== undefined ? { launches } : {}),
+      ...(holdsPct !== undefined ? { holdsPct } : {}),
+      received, burned, sentOut,
+      ...(wtx !== undefined ? { walletTxs: wtx } : {}),
+      ...(chain.explorerUrl ? { url: `${chain.explorerUrl}/address/${toChecksumAddress(dev)}` } : {}),
+    };
+  }
+
   async function intel(address: string): Promise<TokenIntel> {
     const lower = address.toLowerCase();
     const budget = { signal: AbortSignal.timeout(TIMEOUT_MS), rpcCalls: 0, maxRpcCalls: 0, explorerCalls: 0, maxExplorerCalls: 4 };
@@ -227,6 +287,8 @@ export function createTokenIntel(
     const holderCount = typeof profile?.token?.holders === "number" ? profile.token.holders : bsToken?.holders_count && /^\d+$/.test(bsToken.holders_count) ? Number(bsToken.holders_count) : undefined;
     const verifiedSrc = typeof profile?.verified === "boolean" ? profile.verified : typeof bsAddr?.is_verified === "boolean" ? bsAddr.is_verified : undefined;
     const scamFlag = Boolean(profile?.scam || bsAddr?.is_scam);
+    const supplyAll = num(gtToken?.body.data?.attributes?.total_supply) ?? (bsToken?.total_supply && /^\d+$/.test(bsToken.total_supply) ? Number(bsToken.total_supply) : undefined);
+    const dev = await readDev(lower, bsAddr?.creation_transaction_hash ?? undefined, supplyAll).catch(() => undefined);
     if (profile && profile.kind !== "token" && !gtToken) {
       const e = new Error("not a token");
       e.name = "NotAToken";
@@ -328,6 +390,15 @@ export function createTokenIntel(
       const hours = (now() - Date.parse(firstPool)) / 3_600_000;
       if (hours < 72) checks.push({ id: "age", level: "info", title: `New token: first pool ${hours < 1 ? "under an hour" : `${Math.round(hours)}h`} old`, detail: "Young tokens move fast and have little history to judge by." });
     }
+    if (dev) {
+      if ((dev.launches ?? 0) >= 5) checks.push({ id: "dev-launches", level: "warn", title: `Deployer launched ${dev.launches}${dev.launches === 50 ? "+" : ""} tokens`, detail: "This wallet launches tokens often. Check how its earlier launches did." });
+      if (dev.holdsPct !== undefined) {
+        const p = dev.holdsPct;
+        checks.push({ id: "dev-holds", level: p >= 20 ? "warn" : "info", title: `Dev wallet holds ${p < 0.01 && p > 0 ? "<0.01" : p}% of supply`, detail: p >= 20 ? "A large share sits in the launcher's wallet." : "The launcher's wallet holds a small share or none." });
+      }
+      if (dev.burned > 0) checks.push({ id: "dev-burned", level: "ok", title: `Dev wallet burned tokens (${dev.burned}×)`, detail: "Tokens sent from the launcher's wallet to a burn address, permanently out of supply." });
+      if (dev.sentOut > 0) checks.push({ id: "dev-sent", level: "info", title: `Dev wallet sent or sold tokens (${dev.sentOut}×)`, detail: "Transfers out of the launcher's wallet to other addresses, including sells." });
+    }
     const order: Record<Level, number> = { risk: 0, warn: 1, info: 2, ok: 3 };
     checks.sort((a, b) => order[a.level] - order[b.level]);
 
@@ -344,6 +415,7 @@ export function createTokenIntel(
       ...(market ? { market } : {}),
       pools,
       ...(holders ? { holders } : {}),
+      ...(dev ? { dev } : {}),
       checks,
       sources,
       generatedAt: new Date(now()).toISOString(),
