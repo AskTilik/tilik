@@ -1018,9 +1018,3 @@ a.lk-time:hover, a.lk-strong:hover { color: var(--accent); }
 a.pill { text-decoration: none; display: inline-block; }
 .road-updated a { color: var(--accent); }
 .menu-soon .new-badge { margin-left: auto; margin-right: 10px; }
-
-/* Dev wallet */
-.dv-wrap { display: flex; flex-direction: column; gap: 10px; }
-.dv-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
-.dv-head h4 { margin: 0; font-size: 14px; }
-.dv-head .lk-dim { font-size: 13px; }

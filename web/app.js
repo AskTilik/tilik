@@ -566,25 +566,6 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
           box.append(m);
         }
         box.append(chartBlock(address), tradesBlock(address));
-        if (t.dev) {
-          const dv = t.dev, devBox = el("div", "dv-wrap");
-          const head = el("div", "dv-head");
-          head.append(el("h4", "", "Dev wallet"));
-          const who = addrBtn(dv.address);
-          who.classList.add("lk-strong");
-          head.append(who);
-          if (dv.launchedVia) head.append(el("span", "lk-dim", "launched via " + dv.launchedVia + (dv.launchedAt ? " · " + ago(dv.launchedAt) : "")));
-          devBox.append(head);
-          const st = el("div", "lk-stats");
-          st.append(stat("Holds", dv.holdsPct === undefined ? "—" : dv.holdsPct + "%", "of supply"));
-          st.append(stat("Bought / received", String(dv.received), "times"));
-          st.append(stat("Burned", String(dv.burned), "times"));
-          st.append(stat("Sent / sold", String(dv.sentOut), "times"));
-          if (typeof dv.launches === "number") st.append(stat("Tokens launched", String(dv.launches) + (dv.launches === 50 ? "+" : ""), "same launchpad"));
-          devBox.append(st);
-          devBox.append(el("p", "lk-foot", "From the token's creation transaction and the dev wallet's transfers on the official explorer."));
-          box.append(devBox);
-        }
         const checks = el("div", "ti-checks");
         checks.append(el("h4", "", "Safety check"));
         const ul = el("ul");

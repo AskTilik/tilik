@@ -132,8 +132,6 @@ export class BlockscoutExplorer {
     this.get<{ transactions_count?: string; token_transfers_count?: string; gas_usage_count?: string }>(`/addresses/${a}/counters`, b);
   addressTransactions = (a: string, b: ChainBudget) => this.get<{ items?: BsTransaction[] }>(`/addresses/${a}/transactions`, b);
   addressTokenTransfers = (a: string, b: ChainBudget) => this.get<{ items?: BsTokenTransfer[] }>(`/addresses/${a}/token-transfers`, b);
-  /** One token's transfers in and out of an address (newest first, one page). */
-  addressTokenTransfersOf = (a: string, token: string, b: ChainBudget) => this.get<{ items?: BsTokenTransfer[] }>(`/addresses/${a}/token-transfers?token=${token}`, b);
   addressTokens = (a: string, b: ChainBudget) => this.get<{ items?: { token: BsToken; value: string | null }[] }>(`/addresses/${a}/tokens?type=ERC-20`, b);
   token = (a: string, b: ChainBudget) => this.get<BsToken>(`/tokens/${a}`, b, true);
   tokenTransfers = (a: string, b: ChainBudget) => this.get<{ items?: BsTokenTransfer[] }>(`/tokens/${a}/transfers`, b);
