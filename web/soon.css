@@ -51,3 +51,8 @@
 .soon-footer p { margin: 0; font-size: 14px; color: var(--dim); }
 .soon-footer a:not(.logo):hover { color: var(--accent); }
 @media (max-width: 720px) { .soon-grid { grid-template-columns: 1fr; } }
+
+.soon-try { align-self: flex-start; margin-top: 6px; }
+.soon-shipped { max-width: 920px; margin: 0 auto 48px; padding: 28px; border: 1px solid var(--border, #222); border-radius: 18px; }
+.soon-shipped h2 { margin: 0 0 12px; }
+.soon-shipped ul { margin: 0 0 18px; padding-left: 18px; display: grid; gap: 8px; }

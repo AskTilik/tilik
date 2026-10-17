@@ -566,6 +566,66 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
           box.append(m);
         }
         box.append(chartBlock(address), tradesBlock(address));
+        if (t.dev) {
+          const dv = t.dev, devBox = el("div", "dv-wrap");
+          const head = el("div", "dv-head");
+          head.append(el("h4", "", "Dev wallet"));
+          const who = addrBtn(dv.address);
+          who.classList.add("lk-strong");
+          head.append(who);
+          if (dv.launchedVia) head.append(el("span", "lk-dim", "launched via " + dv.launchedVia + (dv.launchedAt ? " · " + ago(dv.launchedAt) : "")));
+          devBox.append(head);
+          const st = el("div", "lk-stats");
+          st.append(stat("Holds", dv.holdsPct === undefined ? "—" : dv.holdsPct + "%", "of supply"));
+          st.append(stat("Bought / received", String(dv.received), "times"));
+          st.append(stat("Burned", String(dv.burned), "times"));
+          st.append(stat("Sent / sold", String(dv.sentOut), "times"));
+          if (typeof dv.launches === "number") st.append(stat("Tokens launched", String(dv.launches) + (dv.launches === 50 ? "+" : ""), "same launchpad"));
+          devBox.append(st);
+          devBox.append(el("p", "lk-foot", "From the token's creation transaction and the dev wallet's transfers on the official explorer."));
+          box.append(devBox);
+        }
+        if (t.liquidityLock) {
+          const lk = t.liquidityLock, lkBox = el("div", "dv-wrap");
+          const head = el("div", "dv-head");
+          const good = lk.held && lk.hasLiquidity;
+          head.append(el("h4", "", "Liquidity lock"), el("span", "sf-badge " + (good ? "ok" : "risk"), good ? "LOCKED FOREVER" : "CHECK"));
+          lkBox.append(head);
+          const st = el("div", "lk-stats");
+          st.append(stat("Locker", lk.lockerName.replace(/^PonsV2.*/, "Pons V2"), lk.lockerName + " · verified"));
+          st.append(stat("Position", "#" + lk.positionId, lk.held ? "held by the locker" : "not held"));
+          st.append(stat("Liquidity", lk.hasLiquidity ? "In the pool" : "Empty", lk.mainPool === true ? "main pool" : lk.mainPool === false ? "not the main pool" : ""));
+          st.append(stat("Withdraw", "Impossible", "no withdraw function"));
+          lkBox.append(st);
+          lkBox.append(el("p", "lk-foot", "Read live from the locker and the Uniswap v4 position contract on Robinhood Chain."));
+          box.append(lkBox);
+        }
+        if (t.snipers) {
+          const sn = t.snipers, snBox = el("div", "dv-wrap");
+          const head = el("div", "dv-head");
+          head.append(el("h4", "", "First-minute buyers"), el("span", "lk-dim", "bought within " + sn.windowSec + "s of launch"));
+          snBox.append(head);
+          const st = el("div", "lk-stats");
+          st.append(stat("Wallets", String(sn.buyers), "bought early"));
+          st.append(stat("Bought", sn.boughtPct + "%", "of supply"));
+          st.append(stat("Still hold", sn.stillHoldPct === undefined ? "—" : sn.stillHoldPct + "%", sn.checked + " largest checked"));
+          st.append(stat("Exited", String(sn.soldAll), "sold or moved all"));
+          snBox.append(st);
+          if (sn.top && sn.top.length) {
+            const ul = el("ul", "sn-list");
+            for (const w of sn.top) {
+              const li = el("li");
+              const who = addrBtn(w.address);
+              who.classList.add("lk-strong");
+              li.append(who, el("span", "lk-dim", "bought " + w.boughtPct + "%" + (w.dev ? " · dev" : "")));
+              li.append(el("span", "lk-num mono" + (w.sold ? " sn-out" : ""), w.holdsPct === undefined ? "—" : w.sold ? "exited" : "holds " + w.holdsPct + "%"));
+              ul.append(li);
+            }
+            snBox.append(ul);
+          }
+          snBox.append(el("p", "lk-foot", "From the token's Transfer events in its first minute and live balances on Robinhood Chain. Routers are skipped; an empty balance can mean sold or moved."));
+          box.append(snBox);
+        }
         const checks = el("div", "ti-checks");
         checks.append(el("h4", "", "Safety check"));
         const ul = el("ul");
@@ -936,6 +996,56 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
 
     // ── Portfolio: what a wallet holds, priced live (/api/portfolio/:address) ──
     const pfForm = document.getElementById("pf-form"), pfInput = document.getElementById("pf-input"), pfOut = document.getElementById("pf-result");
+    // ── Weekly recap: the wallet's last 7 days (/api/recap/:address) ──
+    const eth4 = (n) => num(n, { maximumFractionDigits: n > 0 && n < 0.0001 ? 8 : 4 });
+    const amt = (n) => num(n, { notation: Math.abs(n) >= 1e6 ? "compact" : "standard", maximumFractionDigits: Math.abs(n) >= 1 ? 2 : 6 });
+    async function loadRecap(address, box) {
+      try {
+        const r = await fetchMarket("/api/recap/" + encodeURIComponent(address));
+        const x = await r.json().catch(() => ({}));
+        if (!r.ok) { box.replaceChildren(retryNote((x && x.error && x.error.message) || "The weekly recap could not be read.", () => loadRecap(address, box))); return; }
+        const head = el("div", "dv-head");
+        head.append(el("h4", "", "Last 7 days"));
+        const day = (iso) => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+        head.append(el("span", "lk-dim", x.complete ? day(x.since) + " → now" : "busy wallet: covers " + day(x.coveredSince) + " → now"));
+        const st = el("div", "lk-stats");
+        st.append(stat("Transactions", String(x.txs), x.failed ? x.failed + " failed" : "all succeeded"));
+        st.append(stat("Swaps", String(x.swaps), "gave and got in one tx"));
+        st.append(stat("Fees paid", typeof x.feesUsd === "number" ? usd(x.feesUsd) : eth4(x.feesEth) + " ETH", typeof x.feesUsd === "number" ? eth4(x.feesEth) + " ETH" : "gas"));
+        st.append(stat("ETH out", eth4(x.ethOut), "in: " + eth4(x.ethIn) + " ETH"));
+        st.append(stat("Active days", String(x.activeDays), x.busiestDay ? "busiest " + x.busiestDay.date.slice(5) + " (" + x.busiestDay.txs + ")" : ""));
+        const parts = [head, st];
+        if (x.tokens.length) {
+          const ul = el("ul", "rc-list");
+          for (const t of x.tokens) {
+            const li = el("li");
+            const sym = addrBtn(t.address, t.symbol || shortA(t.address));
+            sym.classList.add("lk-strong");
+            li.append(sym, el("span", "lk-dim mono", [t.in ? "+" + amt(t.in) : "", t.out ? "−" + amt(t.out) : ""].filter(Boolean).join(" / ")));
+            const net = t.netUsd;
+            li.append(el("span", "lk-num mono " + (typeof net !== "number" ? "lk-dim" : net >= 0 ? "up" : "down"), typeof net === "number" ? (net >= 0 ? "+" : "−") + usd(Math.abs(net)) : x.priced ? "no trusted price" : "price unavailable"));
+            ul.append(li);
+          }
+          parts.push(el("h4", "rc-sub", "Tokens in and out"), ul);
+        }
+        if (x.topContracts.length) {
+          const ul = el("ul", "rc-list");
+          for (const c of x.topContracts) {
+            const li = el("li");
+            const who = addrBtn(c.address, c.label || shortA(c.address));
+            who.classList.add("lk-strong");
+            li.append(who, el("span", "lk-dim", ""), el("span", "lk-num mono", c.txs + " tx"));
+            ul.append(li);
+          }
+          parts.push(el("h4", "rc-sub", "Most used contracts"), ul);
+        }
+        parts.push(el("p", "lk-foot", "From the official explorer. Token values use today's price; tokens with under $1,000 liquidity get no value." + (x.complete ? "" : " This wallet had more activity than one read covers, so the recap starts later than 7 days ago.")));
+        box.replaceChildren(...parts);
+      } catch {
+        box.replaceChildren(retryNote("The weekly recap could not be read.", () => loadRecap(address, box)));
+      }
+    }
+
     async function runPortfolio(address, opts = {}) {
       if (!pfForm) return;
       address = String(address || "").trim();
@@ -1000,8 +1110,12 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
         card.append(el("p", "lk-foot", (p.unpriced ? p.unpriced + " token(s) have no market price. " : "") + "Tokens with under $1,000 liquidity are shown but not counted. Prices via GeckoTerminal; balances from the chain and the official explorer."));
         const actions = actionsFor({ label: "Ask TILIK about this wallet", question: "Analyze wallet " + p.address + " on Robinhood Chain" }, null, "portfolio", p.address);
         card.append(actions);
+        const recapBox = el("div", "rc-wrap");
+        recapBox.append(el("p", "lk-loading", "Reading the last 7 days…"));
+        card.append(recapBox);
         pfOut.replaceChildren(card);
         try { history.replaceState(null, "", "/portfolio/" + p.address); } catch { /* sandboxed */ }
+        loadRecap(p.address, recapBox);
       } catch {
         pfOut.replaceChildren(retryNote("Can't reach TILIK right now.", () => runPortfolio(address, { scroll: false })));
       }

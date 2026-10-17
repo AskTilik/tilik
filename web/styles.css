@@ -1018,3 +1018,24 @@ a.lk-time:hover, a.lk-strong:hover { color: var(--accent); }
 a.pill { text-decoration: none; display: inline-block; }
 .road-updated a { color: var(--accent); }
 .menu-soon .new-badge { margin-left: auto; margin-right: 10px; }
+
+/* Dev wallet */
+.dv-wrap { display: flex; flex-direction: column; gap: 10px; }
+.dv-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.dv-head h4 { margin: 0; font-size: 14px; }
+.dv-head .lk-dim { font-size: 13px; }
+
+/* Liquidity lock + first-minute buyers */
+.sf-badge { font: 600 11px/1 var(--mono, monospace); letter-spacing: .12em; padding: 5px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.sf-badge.ok { color: #7fe08a; }
+.sf-badge.risk { color: #ff6b6b; }
+.sn-list { margin: 0; padding: 0; list-style: none; }
+.sn-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.sn-list .sn-out { opacity: .55; }
+
+/* Weekly recap */
+.rc-wrap { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.rc-sub { margin: 6px 0 0; font-size: 13px; color: var(--dim); font-weight: 600; }
+.rc-list { margin: 0; padding: 0; list-style: none; }
+.rc-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.rc-list li > :nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

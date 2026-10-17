@@ -132,6 +132,13 @@ export class BlockscoutExplorer {
     this.get<{ transactions_count?: string; token_transfers_count?: string; gas_usage_count?: string }>(`/addresses/${a}/counters`, b);
   addressTransactions = (a: string, b: ChainBudget) => this.get<{ items?: BsTransaction[] }>(`/addresses/${a}/transactions`, b);
   addressTokenTransfers = (a: string, b: ChainBudget) => this.get<{ items?: BsTokenTransfer[] }>(`/addresses/${a}/token-transfers`, b);
+  /** One token's transfers in and out of an address (newest first, one page). */
+  addressTokenTransfersOf = (a: string, token: string, b: ChainBudget) => this.get<{ items?: BsTokenTransfer[] }>(`/addresses/${a}/token-transfers?token=${token}`, b);
+  /** Paged history: pass the previous page's `next_page_params` to continue (newest first). */
+  addressTransactionsPage = (a: string, after: Record<string, unknown> | null | undefined, b: ChainBudget) =>
+    this.get<{ items?: BsTransaction[]; next_page_params?: Record<string, unknown> | null }>(`/addresses/${a}/transactions${pageQuery(after)}`, b);
+  addressTokenTransfersPage = (a: string, after: Record<string, unknown> | null | undefined, b: ChainBudget) =>
+    this.get<{ items?: BsTokenTransfer[]; next_page_params?: Record<string, unknown> | null }>(`/addresses/${a}/token-transfers${pageQuery(after)}`, b);
   addressTokens = (a: string, b: ChainBudget) => this.get<{ items?: { token: BsToken; value: string | null }[] }>(`/addresses/${a}/tokens?type=ERC-20`, b);
   token = (a: string, b: ChainBudget) => this.get<BsToken>(`/tokens/${a}`, b, true);
   tokenTransfers = (a: string, b: ChainBudget) => this.get<{ items?: BsTokenTransfer[] }>(`/tokens/${a}/transfers`, b);
@@ -140,6 +147,15 @@ export class BlockscoutExplorer {
   topTokens = (b: ChainBudget) => this.get<{ items?: BsToken[] }>("/tokens?type=ERC-20", b);
   recentTransactions = (b: ChainBudget) => this.get<{ items?: BsTransaction[] }>("/transactions?filter=validated", b);
   recentTokenTransfers = (b: ChainBudget) => this.get<{ items?: BsTokenTransfer[] }>("/token-transfers", b);
+}
+
+function pageQuery(after: Record<string, unknown> | null | undefined): string {
+  if (!after) return "";
+  const q = Object.entries(after)
+    .filter(([, v]) => v !== null && v !== undefined && ["string", "number", "boolean"].includes(typeof v))
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+    .join("&");
+  return q ? `?${q}` : "";
 }
 
 /** Explorer labels are third-party annotations, never verified identity. */

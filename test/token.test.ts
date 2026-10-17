@@ -13,6 +13,9 @@ const MAIN = `0x${"d4".repeat(32)}`;
 const SIDE = toChecksumAddress(`0x${"e5".repeat(20)}`);
 const WHALE = toChecksumAddress(`0x${"a1".repeat(20)}`);
 const POOLMGR = toChecksumAddress(`0x${"b2".repeat(20)}`);
+const DEV = toChecksumAddress(`0x${"de".repeat(20)}`);
+const FACTORY = toChecksumAddress(`0x${"fa".repeat(20)}`);
+const CREATE_TX = `0x${"cc".repeat(32)}`;
 const hex = (n: number | bigint) => `0x${n.toString(16)}`;
 const word = (n: bigint | number) => BigInt(n).toString(16).padStart(64, "0");
 const abiString = (s: string) => {
@@ -77,7 +80,20 @@ function gt(path: string): Response {
 function explorer(path: string): Response {
   const p = path.replace(/\?.*$/, "").toLowerCase();
   const t = TOKEN.toLowerCase();
-  if (p === `/addresses/${t}`) return jsonResponse({ hash: TOKEN, name: "PonsV2LauncherToken", is_contract: true, is_verified: true, public_tags: [] });
+  const d = DEV.toLowerCase(), ref = (hash: string) => ({ hash, public_tags: [] });
+  if (p === `/addresses/${t}`) return jsonResponse({ hash: TOKEN, name: "PonsV2LauncherToken", is_contract: true, is_verified: true, public_tags: [], creation_transaction_hash: CREATE_TX });
+  if (p === `/transactions/${CREATE_TX}`)
+    return jsonResponse({ hash: CREATE_TX, timestamp: "2026-10-14T19:31:42.000000Z", from: ref(DEV), to: { hash: FACTORY, name: "PonsV2LaunchFactory", public_tags: [] }, method: "launchToken", value: "0", status: "ok", block_number: 1 });
+  if (p === `/addresses/${d}/token-transfers`) {
+    const tok = { address_hash: TOKEN, name: "Tilik", symbol: "TILIK", decimals: "18", total_supply: null, holders_count: null, type: "ERC-20" };
+    const mv = (from: string, to: string) => ({ transaction_hash: "0x1", timestamp: null, from: ref(from), to: ref(to), token: tok, total: { value: "1" }, type: "token_transfer" });
+    return jsonResponse({ items: [mv(POOLMGR, DEV), mv(DEV, `0x${"0".repeat(40)}`), mv(POOLMGR, DEV), mv(DEV, WHALE)] });
+  }
+  if (p === `/addresses/${d}/tokens`)
+    return jsonResponse({ items: [{ token: { address_hash: TOKEN }, value: "250000000000000000000000000" }] }); // 25% of supply
+  if (p === `/addresses/${d}/transactions`)
+    return jsonResponse({ items: Array.from({ length: 6 }, () => ({ to: ref(FACTORY), method: "launchToken" })).concat([{ to: ref(WHALE), method: "transfer" }] as any) });
+  if (p === `/addresses/${d}/counters`) return jsonResponse({ transactions_count: "17" });
   if (p === `/tokens/${t}`) return jsonResponse({ address_hash: TOKEN, name: "Tilik", symbol: "TILIK", decimals: "18", total_supply: "1000000000000000000000000000", holders_count: "227", type: "ERC-20" });
   if (p === `/tokens/${t}/holders`)
     return jsonResponse({
@@ -123,6 +139,21 @@ describe("token check API", () => {
     assert.equal(byId.liquidity.level, "info");
     assert.equal(byId.holders.level, "ok");
     assert.equal(t.checks[0].level, "warn"); // most important first
+  });
+
+  it("finds the dev wallet from the creation transaction and reports what it did with the token", async () => {
+    const t: any = await (await app().request(`/api/token/${TOKEN}`)).json();
+    assert.equal(t.dev.address, DEV);
+    assert.equal(t.dev.launchedVia, "PonsV2LaunchFactory");
+    assert.equal(t.dev.launches, 6);
+    assert.equal(t.dev.holdsPct, 25);
+    assert.deepEqual([t.dev.received, t.dev.burned, t.dev.sentOut], [2, 1, 1]);
+    assert.equal(t.dev.walletTxs, 17);
+    const byId = Object.fromEntries(t.checks.map((c: any) => [c.id, c]));
+    assert.equal(byId["dev-holds"].level, "warn");
+    assert.equal(byId["dev-launches"].level, "warn");
+    assert.equal(byId["dev-burned"].level, "ok");
+    assert.equal(byId["dev-sent"].level, "info");
   });
 
   it("rejects bad addresses and non-tokens", async () => {
