@@ -1299,7 +1299,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
     const live = document.getElementById("tilik-live");
     if (live) {
       // Always shown; numbers fill in when the chain answers (a busy moment upstream retries instead of hiding the card).
-      const fill = (attempt = 0) => fetch("/api/address/" + live.dataset.token, { headers: { Accept: "application/json" } })
+      const fill = (attempt = 0) => fetch("/api/address/" + live.dataset.token + (attempt ? "?r=" + attempt : ""), { headers: { Accept: "application/json" } })
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null)
         .then((p) => {
@@ -1310,6 +1310,9 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
           set("txs", p.counters && typeof p.counters.transactions === "number" ? num(p.counters.transactions) : "");
           const last = (p.transfers || [])[0];
           set("last", last && last.time ? ago(last.time) : "");
+          // The explorer sometimes answers partly (busy): keep what arrived and ask again for the rest.
+          const partial = typeof p.token.holders !== "number" || !(p.counters && typeof p.counters.transactions === "number");
+          if (partial && attempt < 3) setTimeout(() => fill(attempt + 1), 4000 * (attempt + 1));
         });
       fill();
       live.querySelector("[data-open]")?.addEventListener("click", () => run(live.dataset.token));
