@@ -1046,3 +1046,14 @@ a.pill { text-decoration: none; display: inline-block; }
 .share-msg { font-size: 13px; color: var(--dim); }
 .share-link { color: var(--accent, #e4ff1a); }
 .share-note { margin-top: 14px; font-size: 13px; color: var(--dim); }
+
+/* CA in the announcement bar */
+.pill-ca { font-size: 15px; letter-spacing: 0; display: inline-flex; gap: 8px; align-items: center; }
+.pill-ca .ca-short { display: none; }
+.pill-ca .ca-done { color: var(--accent-ink); }
+.pill-ca .pill-hint { font-size: 11px; letter-spacing: 0.12em; opacity: 0.7; }
+.pill-ca .ca-done:not(:empty) + .pill-hint { display: none; }
+@media (max-width: 640px) {
+  .pill-ca .ca-full { display: none; }
+  .pill-ca .ca-short { display: inline; }
+}
