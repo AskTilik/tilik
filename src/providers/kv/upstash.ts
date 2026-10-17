@@ -98,6 +98,16 @@ export class MemoryKv implements Kv {
       }
       case "SMEMBERS":
         return [...(this.sets.get(key) ?? [])] as T;
+      case "SREM": {
+        const s = this.sets.get(key);
+        let n = 0;
+        for (const m of rest) if (s?.delete(m)) n++;
+        return n as T;
+      }
+      case "SISMEMBER":
+        return (this.sets.get(key)?.has(rest[0]!) ? 1 : 0) as T;
+      case "SCARD":
+        return (this.sets.get(key)?.size ?? 0) as T;
       case "EXPIRE":
         return 1 as T;
       default:

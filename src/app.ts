@@ -14,6 +14,7 @@ import { createPortfolio, portfolioRoutes } from "./api/portfolio.js";
 import { createRecap, recapRoutes } from "./api/recap.js";
 import { createHolderTracker, holderRoutes } from "./api/holders.js";
 import { createShares, SHARE_ID, shareRoutes } from "./api/shares.js";
+import { createTelegramBot, telegramRoutes } from "./api/telegram.js";
 import { pulseRoutes } from "./api/pulse.js";
 import { systemRoutes } from "./api/system.js";
 import { rateLimitEnabled } from "./config/env.js";
@@ -69,6 +70,9 @@ export function createApp(container: Container): Hono<{ Variables: AppVariables 
   const holderTracker = createHolderTracker(env, logger);
   app.route("/", holderRoutes(env, clientLimiter, holderTracker));
   app.route("/", tokenRoutes(env, clientLimiter, intel, (address, t) => holderTracker.record(address, t.token.holders)));
+  // @asktilik_bot: webhook, alerts cron, and the daily cron (holder refresh first, then the morning report).
+  const bot = createTelegramBot(env, logger, { intel, holders: holderTracker, limiter: clientLimiter });
+  app.route("/", telegramRoutes(env, bot, { beforeDaily: () => holderTracker.cron() }));
   const portfolio = createPortfolio(env, logger);
   app.route("/", portfolioRoutes(env, clientLimiter, portfolio));
   app.route("/", recapRoutes(env, clientLimiter, createRecap(env, logger, portfolio.prices)));
