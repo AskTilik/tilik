@@ -27,7 +27,7 @@ const intelOf = (price = 1, extra: Partial<TokenIntel> = {}): TokenIntel => ({
 const tradesOf = (list: { time: string; whale?: boolean; usd?: number }[]): Trades => ({
   pool: { name: "", address: "", dex: "", url: "" },
   trades: list.map((x) => ({ kind: "buy", usd: x.usd ?? 50, amount: 1, wallet: `0x${"ab".repeat(20)}`, time: x.time, tx: "0x", ...(x.whale ? { whale: true } : {}) })),
-  summary: { buys: 0, sells: 0, buyUsd: 0, sellUsd: 0, wallets: 0, whaleUsd: 600 },
+  summary: { buys: 0, sells: 0, buyUsd: 0, sellUsd: 0, wallets: 0, buyers: 0, sellers: 0, whaleUsd: 600 },
   generatedAt: "",
 });
 

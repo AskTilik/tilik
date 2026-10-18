@@ -565,7 +565,16 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
           m.append(stat("FDV", usdS(t.market.fdvUsd)));
           box.append(m);
         }
-        box.append(chartBlock(address), holdersBlock(address), tradesBlock(address));
+        const story = [];
+        if (t.dev && t.dev.launchedAt) story.push({ time: t.dev.launchedAt, kind: "launch", label: "Launched" + (t.dev.launchedVia ? " via " + t.dev.launchedVia : "") });
+        if (t.market && t.market.graduated && t.market.graduated.at) story.push({ time: t.market.graduated.at, kind: "grad", label: "Graduated to a DEX pool" });
+        const devEv = [...((t.dev && t.dev.events) || [])].sort((a, b) => Date.parse(a.time) - Date.parse(b.time));
+        for (let i = 0; i < devEv.length; i++) {
+          const e = devEv[i], nx = devEv[i + 1];
+          if (e.kind === "buy" && nx && nx.kind === "burn" && Date.parse(nx.time) - Date.parse(e.time) < 600_000) { story.push({ time: nx.time, kind: "burn", label: "Dev buyback & burn" }); i++; continue; }
+          story.push({ time: e.time, kind: e.kind, label: e.kind === "buy" ? "Dev wallet bought" : e.kind === "burn" ? "Dev wallet burned tokens" : "Dev wallet sent or sold" });
+        }
+        box.append(briefBlock(address, t), chartBlock(address, story), holdersBlock(address), tradesBlock(address));
         if (t.dev) {
           const dv = t.dev, devBox = el("div", "dv-wrap");
           const head = el("div", "dv-head");
@@ -720,8 +729,125 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       const narrow = pw < 420;
       const fmtT = (t) => new Date(t * 1000).toLocaleString([], narrow ? { hour: "2-digit", minute: "2-digit" } : { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
       (narrow ? [0, candles.length - 1] : [0, Math.floor(candles.length / 2), candles.length - 1]).forEach((i) => g.fillText(fmtT(candles[i][0]), Math.min(pw - 34, Math.max(34, i * step + step / 2)), h - 10));
+      return { step, y, pw };
     };
-    const chartBlock = (address) => {
+    // ── AI Token Brief: the token check in plain words; every sentence cites the facts it uses (/api/token/:address/brief) ──
+    const briefBlock = (address, t) => {
+      const wrap = el("div", "ai-brief");
+      const head = el("div", "ai-head");
+      head.append(el("span", "ai-badge", "✨ AI TOKEN BRIEF"), el("span", "lk-dim", "the whole check, in plain words"));
+      const go = el("button", "btn btn-primary ai-go", "Explain this token");
+      go.type = "button";
+      const card = el("button", "chip-btn mono ai-card", "Share card");
+      card.type = "button";
+      const actions = el("div", "ai-actions");
+      actions.append(go, card);
+      const body = el("div", "ai-body");
+      wrap.append(head, actions, body);
+      let brief = null;
+      go.addEventListener("click", async () => {
+        go.disabled = true;
+        body.replaceChildren(el("p", "lk-loading", "Reading the check and writing the brief…"));
+        try {
+          const r = await fetch("/api/token/" + encodeURIComponent(address) + "/brief", { headers: { Accept: "application/json" } });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { body.replaceChildren(retryNote((d && d.error && d.error.message) || "The brief could not be written.", () => go.click())); go.disabled = false; return; }
+          brief = d;
+          const ul = el("ul", "ai-points");
+          for (const p of d.points) {
+            const li = el("li", "");
+            li.append(el("span", "", p.text + " "));
+            for (const n of p.facts) { const c = el("span", "ai-fact mono", String(n)); c.title = d.facts[n - 1] || ""; li.append(c); }
+            ul.append(li);
+          }
+          const facts = el("details", "ai-facts");
+          facts.append(el("summary", "", "The facts it used (" + d.facts.length + ")"));
+          const ol = el("ol", "");
+          for (const f of d.facts) ol.append(el("li", "", f));
+          facts.append(ol);
+          body.replaceChildren(el("h4", "ai-headline", d.headline), ul, facts, el("p", "lk-foot", "Written by AI (" + d.model + ") only from the facts above, read live from Robinhood Chain and DEX pools. Not advice."));
+          go.textContent = "Explained ✓";
+        } catch {
+          body.replaceChildren(retryNote("The brief could not be written.", () => go.click()));
+          go.disabled = false;
+        }
+      });
+      card.addEventListener("click", () => shareCard(t, brief, card));
+      return wrap;
+    };
+    // ── Share card: an image of the check (drawn here, in the browser) to post anywhere ──
+    const shareCard = async (t, brief, btn) => {
+      const W = 1200, H = 675, c = document.createElement("canvas");
+      c.width = W; c.height = H;
+      const g = c.getContext("2d");
+      await document.fonts.ready.catch(() => {});
+      const bg = g.createLinearGradient(0, 0, W, H);
+      bg.addColorStop(0, "#0b0d0a"); bg.addColorStop(1, "#050506");
+      g.fillStyle = bg; g.fillRect(0, 0, W, H);
+      const glow = g.createRadialGradient(W * 0.85, 0, 0, W * 0.85, 0, 700);
+      glow.addColorStop(0, "rgba(228,255,26,0.16)"); glow.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = glow; g.fillRect(0, 0, W, H);
+      const txt = (s, x, y, size, col, weight = 800, font = "Inter, system-ui, sans-serif") => { g.font = weight + " " + size + "px " + font; g.fillStyle = col; g.fillText(s, x, y); };
+      g.textBaseline = "alphabetic";
+      txt("TILIK TOKEN CHECK", 60, 76, 18, "#e4ff1a", 700, "JetBrains Mono, monospace");
+      txt((t.token.symbol ? "$" + t.token.symbol : "Token") + (t.token.name ? "  ·  " + t.token.name : ""), 60, 140, 52, "#fff");
+      txt(t.address, 60, 178, 18, "rgba(255,255,255,0.5)", 500, "JetBrains Mono, monospace");
+      const m = t.market || {};
+      const stats = [["PRICE", typeof m.priceUsd === "number" ? "$" + m.priceUsd.toPrecision(4) : "—"], ["LIQUIDITY", usdS(m.liquidityUsd)], ["VOLUME 24H", usdS(m.volume24hUsd)], ["HOLDERS", typeof t.token.holders === "number" ? String(t.token.holders) : "—"]];
+      stats.forEach(([k, v], i) => { const x = 60 + i * 275; g.fillStyle = "rgba(255,255,255,0.05)"; g.beginPath(); g.roundRect(x, 210, 255, 96, 14); g.fill(); txt(k, x + 20, 244, 14, "rgba(255,255,255,0.5)", 700, "JetBrains Mono, monospace"); txt(v, x + 20, 286, 32, "#fff"); });
+      const lk = t.liquidityLock, dv = t.dev, sn = t.snipers, sl = t.sells;
+      const rows = [
+        lk ? ["🔒", lk.held && lk.hasLiquidity ? "Liquidity locked forever" : "Locked position empty or moved", lk.held && lk.hasLiquidity ? "#7cff6b" : "#ff4d8d"] : null,
+        dv ? ["👤", "Dev holds " + (dv.holdsPct ?? "?") + "% · burned " + dv.burned + "× · sold " + dv.sentOut + "×", "#fff"] : null,
+        sn ? ["⏱", sn.buyers + " first-minute buyers" + (sn.stillHoldPct !== undefined ? " · now hold " + sn.stillHoldPct + "%" : ""), "#fff"] : null,
+        sl ? ["🛡", sl.sellers >= 3 ? "Selling works: " + sl.sellers + " wallets sold recently" : sl.buys >= 10 && sl.sells === 0 ? "No sells seen: possible honeypot" : sl.sellers + " recent sellers", sl.sellers >= 3 ? "#7cff6b" : "#ffb21e"] : null,
+      ].filter(Boolean);
+      rows.forEach(([ic, s, col], i) => { txt(ic, 60, 372 + i * 50, 26, "#fff", 400, "system-ui, sans-serif"); txt(s, 104, 372 + i * 50, 26, col, 700); });
+      if (brief && brief.headline) { g.fillStyle = "rgba(228,255,26,0.1)"; g.beginPath(); g.roundRect(60, 568, W - 120, 52, 12); g.fill(); txt("✨ " + brief.headline.slice(0, 80), 80, 602, 22, "#e4ff1a", 700); }
+      txt("asktilik.com/token/" + t.address.slice(0, 6) + "…" + t.address.slice(-4), 60, H - 22, 16, "rgba(255,255,255,0.45)", 500, "JetBrains Mono, monospace");
+      txt("Live on-chain data · Not advice", W - 330, H - 22, 16, "rgba(255,255,255,0.45)", 500, "JetBrains Mono, monospace");
+      const blob = await new Promise((res) => c.toBlob(res, "image/png"));
+      if (!blob) return;
+      const name = "tilik-" + (t.token.symbol || "token").toLowerCase() + ".png";
+      const file = new File([blob], name, { type: "image/png" });
+      try {
+        // Phones: the share sheet (straight to X, chats…). Desktops: a plain download.
+        if (matchMedia("(pointer: coarse)").matches && navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: "Token check on TILIK", url: location.origin + "/token/" + t.address }); return; }
+      } catch { /* share cancelled: fall back to download */ }
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      if (btn) { btn.textContent = "Card saved ✓"; setTimeout(() => { btn.textContent = "Share card"; }, 2500); }
+    };
+    // ── Token Story: real events marked on the price chart (launch, graduation, dev moves, whale trades) ──
+    const STORY_KIND = { launch: ["🚀", "#e4ff1a"], grad: ["🎓", "#38d6f5"], buy: ["🟢", "#7cff6b"], burn: ["🔥", "#ffb21e"], out: ["🔴", "#ff4d8d"], whale: ["🐋", "#b44dff"] };
+    const placeStory = (candles, layout, events) => {
+      if (!layout || candles.length < 2) return [];
+      const t0 = candles[0][0], tf = candles[1][0] - candles[0][0], last = candles[candles.length - 1][0] + tf;
+      const stack = new Map();
+      return events
+        .map((e) => ({ ...e, s: Date.parse(e.time) / 1000 }))
+        .filter((e) => Number.isFinite(e.s) && e.s >= t0 && e.s < last)
+        .map((e) => {
+          const i = Math.min(candles.length - 1, Math.floor((e.s - t0) / tf));
+          const n = stack.get(i) ?? 0;
+          stack.set(i, n + 1);
+          return { ...e, x: i * layout.step + layout.step / 2, y: Math.max(12 + n * 20, layout.y(candles[i][2]) - 14 - n * 20) };
+        });
+    };
+    const drawStory = (canvas, placed) => {
+      const g = canvas.getContext("2d");
+      g.save(); g.textAlign = "center"; g.textBaseline = "middle"; g.font = "12px system-ui, sans-serif";
+      for (const p of placed) {
+        const [icon, col] = STORY_KIND[p.kind] ?? ["•", "#fff"];
+        g.fillStyle = "rgba(0,0,0,0.75)"; g.strokeStyle = col; g.lineWidth = 1.5;
+        g.beginPath(); g.arc(p.x, p.y, 9, 0, Math.PI * 2); g.fill(); g.stroke();
+        g.fillText(icon, p.x, p.y + 0.5);
+      }
+      g.restore();
+    };
+    const chartBlock = (address, baseEvents = []) => {
       const wrap = el("div", "tc-wrap");
       const head = el("div", "tc-head");
       const title = el("h4", "", "Price chart");
@@ -731,8 +857,42 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       const canvas = el("canvas", "tc-canvas");
       canvas.setAttribute("aria-label", "Price chart of the main pool");
       const note = el("p", "lk-foot", "");
-      wrap.append(head, canvas, note);
-      let current = null;
+      const tip = el("div", "story-tip");
+      tip.hidden = true;
+      const storyList = el("ul", "story-list");
+      const plot = el("div", "tc-plot");
+      plot.append(canvas, tip);
+      wrap.append(head, plot, note, storyList);
+      let current = null, placed = [], events = [...baseEvents];
+      // Whale trades join the story once the recent trades are read.
+      fetch("/api/token/" + encodeURIComponent(address) + "/trades", { headers: { Accept: "application/json" } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!d) return;
+          for (const t of d.trades.filter((x) => x.whale)) events.push({ time: t.time, kind: "whale", label: "Whale " + t.kind + " " + usd(t.usd) });
+          paint();
+        })
+        .catch(() => {});
+      const paint = () => {
+        if (!wrap.isConnected) return;
+        // markers need the chart; the story list does not (it still shows when market data is busy)
+        if (current) { const layout = drawCandles(canvas, current); placed = placeStory(current, layout, events); drawStory(canvas, placed); }
+        const shown = [...events].sort((a, b) => Date.parse(b.time) - Date.parse(a.time)).slice(0, 6);
+        storyList.replaceChildren(...shown.map((e) => {
+          const li = el("li", "");
+          li.append(el("span", "story-ic", (STORY_KIND[e.kind] ?? ["•"])[0]), el("span", "", e.label), el("span", "lk-dim mono", ago(e.time)));
+          return li;
+        }));
+        if (shown.length) storyList.prepend(el("li", "story-h", "Token story · real events from the chain"));
+      };
+      requestAnimationFrame(paint);
+      canvas.addEventListener("mousemove", (ev) => {
+        const r = canvas.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+        const hit = placed.find((p) => Math.hypot(p.x - mx, p.y - my) < 13);
+        tip.hidden = !hit;
+        if (hit) { tip.textContent = hit.label + " · " + ago(hit.time); tip.style.left = Math.min(r.width - 180, Math.max(0, hit.x - 90)) + "px"; tip.style.top = Math.max(0, hit.y - 46) + "px"; }
+      });
+      canvas.addEventListener("mouseleave", () => { tip.hidden = true; });
       const load = async (tf) => {
         for (const b of tabs.children) b.setAttribute("aria-selected", String(b.dataset.tf === tf));
         note.textContent = "Loading…";
@@ -741,7 +901,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
           const d = await r.json().catch(() => ({}));
           if (!r.ok) { note.replaceChildren(retryNote((d && d.error && d.error.message) || "Chart unavailable.", () => load(tf))); current = null; drawCandles(canvas, []); return; }
           current = d.candles;
-          drawCandles(canvas, current);
+          paint();
           const first = current[0], last = current[current.length - 1];
           const ch = first && last ? ((last[4] - first[1]) / first[1]) * 100 : null;
           info.textContent = ch === null ? "" : pct(ch) + " over " + current.length + " candles";
@@ -755,7 +915,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
         b.addEventListener("click", () => load(tf));
         tabs.append(b);
       }
-      addEventListener("resize", () => { if (current && wrap.isConnected) drawCandles(canvas, current); });
+      addEventListener("resize", () => { if (current && wrap.isConnected) paint(); });
       requestAnimationFrame(() => load("15m"));
       return wrap;
     };

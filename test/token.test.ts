@@ -139,6 +139,8 @@ describe("token check API", () => {
     assert.equal(byId.liquidity.level, "info");
     assert.equal(byId.holders.level, "ok");
     assert.equal(t.checks[0].level, "warn"); // most important first
+    assert.deepEqual(t.sells, { buys: 1, sells: 1, buyers: 1, sellers: 1, since: t.sells.since }); // honeypot check from real trades
+    assert.equal(byId.sells.level, "info");
   });
 
   it("finds the dev wallet from the creation transaction and reports what it did with the token", async () => {

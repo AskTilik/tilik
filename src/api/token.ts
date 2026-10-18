@@ -75,6 +75,8 @@ export interface DevInfo {
   received: number;
   burned: number;
   sentOut: number;
+  /** Newest first, at most 20: the dev wallet's own moves of this token. */
+  events?: { time: string; kind: "buy" | "burn" | "out" }[];
   walletTxs?: number;
   url?: string;
 }
@@ -88,6 +90,8 @@ export interface TokenIntel {
   pools: PoolInfo[];
   holders?: { top: HolderInfo[]; top10Pct: number; note: string };
   dev?: DevInfo;
+  /** Recent trades on the main pool: can people sell? */
+  sells?: { buys: number; sells: number; buyers: number; sellers: number; since?: string };
   liquidityLock?: LiquidityLock;
   snipers?: Snipers;
   checks: Check[];
@@ -117,7 +121,7 @@ export interface Trade {
 export interface Trades {
   pool: { name: string; address: string; dex: string; url: string };
   trades: Trade[];
-  summary: { buys: number; sells: number; buyUsd: number; sellUsd: number; wallets: number; since?: string; whaleUsd: number };
+  summary: { buys: number; sells: number; buyUsd: number; sellUsd: number; wallets: number; buyers: number; sellers: number; since?: string; whaleUsd: number };
   generatedAt: string;
 }
 
@@ -253,12 +257,15 @@ export function createTokenIntel(
       again(() => explorer.addressCounters(d, budget)).catch(() => null),
     ]);
     let received = 0, burned = 0, sentOut = 0;
+    const events: NonNullable<DevInfo["events"]> = [];
     for (const m of moves?.items ?? []) {
       if (m.token.address_hash.toLowerCase() !== token) continue;
       const from = m.from.hash.toLowerCase(), to = m.to.hash.toLowerCase();
-      if (to === d && from !== d) received++;
-      else if (from === d && BURN.has(to)) burned++;
-      else if (from === d) sentOut++;
+      const kind = to === d && from !== d ? "buy" : from === d && BURN.has(to) ? "burn" : from === d ? "out" : null;
+      if (kind === "buy") received++;
+      else if (kind === "burn") burned++;
+      else if (kind === "out") sentOut++;
+      if (kind && m.timestamp && events.length < 20) events.push({ time: m.timestamp, kind });
     }
     let holdsPct: number | undefined;
     if (held) {
@@ -276,6 +283,7 @@ export function createTokenIntel(
       ...(launches !== undefined ? { launches } : {}),
       ...(holdsPct !== undefined ? { holdsPct } : {}),
       received, burned, sentOut,
+      ...(events.length ? { events } : {}),
       ...(wtx !== undefined ? { walletTxs: wtx } : {}),
       ...(chain.explorerUrl ? { url: `${chain.explorerUrl}/address/${toChecksumAddress(dev)}` } : {}),
     };
@@ -454,6 +462,18 @@ export function createTokenIntel(
       if (dev.burned > 0) checks.push({ id: "dev-burned", level: "ok", title: `Dev wallet burned tokens (${dev.burned}×)`, detail: "Tokens sent from the launcher's wallet to a burn address, permanently out of supply." });
       if (dev.sentOut > 0) checks.push({ id: "dev-sent", level: "info", title: `Dev wallet sent or sold tokens (${dev.sentOut}×)`, detail: "Transfers out of the launcher's wallet to other addresses, including sells." });
     }
+    // Honeypot check: evidence from real trades, not a simulation.
+    const mainForTrades = pools.find((p) => p.main);
+    const recent = mainForTrades
+      ? await cached(`ptrades:${mainForTrades.address.toLowerCase()}`, 30_000, () => poolTrades({ info: { name: mainForTrades.name, address: mainForTrades.address, dex: mainForTrades.dex, url: mainForTrades.url }, liquidity: mainForTrades.liquidityUsd ?? 0, token: lower })).catch(() => null)
+      : null;
+    const sellsInfo = recent ? { buys: recent.summary.buys, sells: recent.summary.sells, buyers: recent.summary.buyers, sellers: recent.summary.sellers, ...(recent.summary.since ? { since: recent.summary.since } : {}) } : undefined;
+    if (sellsInfo) {
+      const n = sellsInfo.buys + sellsInfo.sells;
+      if (sellsInfo.sellers >= 3) checks.push({ id: "sells", level: "ok", title: `Selling works: ${sellsInfo.sellers} wallets sold recently`, detail: `${sellsInfo.sells} sells by ${sellsInfo.sellers} different wallets in the main pool's last ${n} trades.` });
+      else if (sellsInfo.buys >= 10 && sellsInfo.sells === 0) checks.push({ id: "sells", level: "risk", title: "No sells in recent trades: possible honeypot", detail: `${sellsInfo.buys} buys and no sells in the main pool's last ${n} trades. Make sure the token can be sold before buying.` });
+      else if (n > 0) checks.push({ id: "sells", level: "info", title: `Few sellers so far (${sellsInfo.sellers})`, detail: `${sellsInfo.sells} sells in the main pool's last ${n} trades: not enough to show that selling works for everyone.` });
+    }
     const order: Record<Level, number> = { risk: 0, warn: 1, info: 2, ok: 3 };
     checks.sort((a, b) => order[a.level] - order[b.level]);
 
@@ -471,6 +491,7 @@ export function createTokenIntel(
       pools,
       ...(holders ? { holders } : {}),
       ...(dev ? { dev } : {}),
+      ...(sellsInfo ? { sells: sellsInfo } : {}),
       ...(liquidityLock ? { liquidityLock } : {}),
       ...(snipers ? { snipers } : {}),
       checks,
@@ -529,7 +550,12 @@ export function createTokenIntel(
   }
 
   async function trades(address: string): Promise<Trades> {
-    const { info, liquidity, token } = await mainPool(address);
+    const pool = await mainPool(address);
+    return cached(`ptrades:${pool.info.address.toLowerCase()}`, 30_000, () => poolTrades(pool));
+  }
+
+  /** Recent trades on a known pool. The token check calls this directly with its own main pool (it must not wait on itself). */
+  async function poolTrades({ info, liquidity, token }: { info: { name: string; address: string; dex: string; url: string }; liquidity: number; token: string }): Promise<Trades> {
     const res = await gecko.get<{ data?: { attributes?: Record<string, any> }[] }>(`/networks/${encodeURIComponent(net)}/pools/${info.address}/trades`, "live", gtBudget(1));
     // "Whale": a single trade worth at least 2% of the pool's liquidity (and $100+).
     const whaleUsd = Math.max(100, Math.round(liquidity * 0.02));
@@ -563,7 +589,7 @@ export function createTokenIntel(
     return {
       pool: info,
       trades: all.slice(0, 25),
-      summary: { buys: buys.length, sells: sells.length, buyUsd: sum(buys), sellUsd: sum(sells), wallets: new Set(all.map((t) => t.wallet)).size, ...(all.length ? { since: all[all.length - 1]!.time } : {}), whaleUsd },
+      summary: { buys: buys.length, sells: sells.length, buyUsd: sum(buys), sellUsd: sum(sells), wallets: new Set(all.map((t) => t.wallet)).size, buyers: new Set(buys.map((t) => t.wallet)).size, sellers: new Set(sells.map((t) => t.wallet)).size, ...(all.length ? { since: all[all.length - 1]!.time } : {}), whaleUsd },
       generatedAt: new Date(now()).toISOString(),
     };
   }
