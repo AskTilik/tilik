@@ -2120,31 +2120,31 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
       li.append(el("span", "", label), el("span", "status-dot", "Checking…"));
       return li;
     });
-  statusModels.replaceChildren(...checkingRows(PROVIDER_LABEL));
-  statusTools.replaceChildren(...checkingRows(TOOL_LABEL));
+  statusModels?.replaceChildren(...checkingRows(PROVIDER_LABEL));
+  statusTools?.replaceChildren(...checkingRows(TOOL_LABEL));
   async function loadStatus() {
-    statusRefresh.disabled = true;
+    if (statusRefresh) statusRefresh.disabled = true;
     try {
       const res = await fetch("/health", { cache: "no-store" });
       if (!res.ok) throw new Error(String(res.status));
       const h = await res.json();
-      statusModels.replaceChildren(...statusRows(h.providers, PROVIDER_LABEL));
-      statusTools.replaceChildren(...statusRows(h.tools, TOOL_LABEL));
+      statusModels?.replaceChildren(...statusRows(h.providers, PROVIDER_LABEL));
+      statusTools?.replaceChildren(...statusRows(h.tools, TOOL_LABEL));
       const models = Object.values(h.providers ?? {}).filter(Boolean).length;
       const sources = Object.values(h.tools ?? {}).filter(Boolean).length;
-      statusNote.textContent = `${models} model provider${models === 1 ? "" : "s"} and ${sources} data source${sources === 1 ? "" : "s"} configured · checked ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}. A configured source can still be temporarily unreachable — answers say so when that happens.`;
+      if (statusNote) statusNote.textContent = `${models} model provider${models === 1 ? "" : "s"} and ${sources} data source${sources === 1 ? "" : "s"} configured · checked ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}. A configured source can still be temporarily unreachable — answers say so when that happens.`;
       readyText.textContent = `${models} AI model${models === 1 ? "" : "s"} · ${sources} data source${sources === 1 ? "" : "s"} configured`;
       readyChip.hidden = models === 0;
     } catch {
-      statusModels.replaceChildren(el("li", "status-loading", "Status unavailable"));
-      statusTools.replaceChildren(el("li", "status-loading", "Status unavailable"));
-      statusNote.textContent = "Couldn't reach the TILIK server. Is it running?";
+      statusModels?.replaceChildren(el("li", "status-loading", "Status unavailable"));
+      statusTools?.replaceChildren(el("li", "status-loading", "Status unavailable"));
+      if (statusNote) statusNote.textContent = "Couldn't reach the TILIK server. Is it running?";
       readyChip.hidden = true;
     } finally {
-      statusRefresh.disabled = false;
+      if (statusRefresh) statusRefresh.disabled = false;
     }
   }
-  statusRefresh.addEventListener("click", loadStatus);
+  statusRefresh?.addEventListener("click", loadStatus);
   // Checked right away (a tiny request, booleans only) so the section has its final size before anyone
   // scrolls or jumps past it.
   loadStatus();
@@ -2155,7 +2155,7 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
   const termMiss = document.getElementById("term-miss");
   const termMissAsk = document.getElementById("term-miss-ask");
   let missedTerm = "";
-  termSearch.addEventListener("input", () => {
+  if (termSearch) termSearch.addEventListener("input", () => {
     const raw = termSearch.value.trim().slice(0, 60);
     const q = raw.toLowerCase();
     let shown = 0;
@@ -2168,11 +2168,11 @@ import { assistantMessageFrom, browserStorage, createConversationStore, createSi
     termMiss.hidden = !q || shown > 0;
     termMissAsk.textContent = `Ask TILIK: what is “${raw}”?`;
   });
-  termSearch.addEventListener("keydown", (e) => {
+  if (termSearch) termSearch.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !termMiss.hidden) { e.preventDefault(); termMissAsk.click(); }
   });
   // Fills the chat with the question (sent only when the visitor presses Send), like the "Ask" buttons.
-  termMissAsk.addEventListener("click", () => {
+  termMissAsk?.addEventListener("click", () => {
     if (missedTerm) openChat({ question: `What is "${missedTerm}"? Explain it simply, in the context of Robinhood Chain and DeFi.` });
   });
 
