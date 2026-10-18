@@ -450,7 +450,7 @@ describe("market + on-chain combined analysis", () => {
     const { ask } = setup({ ONCHAIN_ENABLED: "true", ONCHAIN_RPC_RETRIES: "0", ROBINHOOD_EXPLORER_API_URL: "none" }, llm);
     const res = await ask(`Analyze this token on Robinhood Chain ${TOKEN}`);
     const caps = res.plan.tools.map((t) => t.capability).sort();
-    assert.deepEqual(caps, ["chain.data", "market.data"]);
+    assert.deepEqual(caps, ["chain.data", "market.data", "token.check"]);
     assert.ok(!res.plan.tools.some((t) => t.capability === "web.search"));
     const prompt = promptOf(llm);
     assert.match(prompt, /Type: token contract/, "on-chain facts");

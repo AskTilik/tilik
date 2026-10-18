@@ -25,9 +25,10 @@ export const INTENT_CAPABILITIES: Record<Intent, CapabilityNeeds> = {
   news: { required: ["news.feed"], fallback: ["web.search"] },
   // Reading the repo page beats searching about it; search only if there's no URL.
   github: { required: ["github.repo"], fallback: ["web.extract", "web.search"] },
-  onchain: { required: ["chain.data"], fallback: ["web.search"] },
+  // A token address also gets TILIK's token check (lock, dev wallet, early buyers, holders): the answer then matches the website.
+  onchain: { required: ["chain.data"], optional: ["token.check"], fallback: ["web.search"] },
   // No web fallback: search snippets would present stale prices as current.
-  market: { required: ["market.data"] },
+  market: { required: ["market.data"], optional: ["token.check"] },
 };
 
 /**

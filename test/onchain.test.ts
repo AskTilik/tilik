@@ -248,7 +248,7 @@ describe("chain configuration", () => {
     assert.equal(res.warnings.filter((w) => /Explorer API unavailable/.test(w)).length, 1);
     assert.ok(net.calls.filter((c) => c.url.startsWith(PRO)).length <= 2, "stops calling after an auth/quota failure");
     assert.ok(!JSON.stringify(res).includes("proapi_test"), "key not exposed");
-    assert.equal(res.toolRuns[0]?.status, "ok", "still answers from RPC data");
+    assert.equal(res.toolRuns.find((r) => r.tool === "robinhood-chain")?.status, "ok", "still answers from RPC data");
   });
 
   it("testnet and overrides", () => {

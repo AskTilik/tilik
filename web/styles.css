@@ -1057,3 +1057,19 @@ a.pill { text-decoration: none; display: inline-block; }
   .pill-ca .ca-full { display: none; }
   .pill-ca .ca-short { display: inline; }
 }
+
+/* Announcement: one line */
+.announce { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 18px; padding: 9px 52px 9px var(--gutter); }
+.announce-title { font-size: 12px; font-weight: 700; letter-spacing: 0.16em; display: inline-flex; align-items: center; gap: 8px; }
+.announce-title::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.announce-meta { margin: 0 !important; padding: 0; font-size: 12px; }
+.announce-cta { margin: 0 !important; font-size: 14px; gap: 10px; }
+.announce .pill-ca { font-size: 13px; padding: 2px 11px; }
+.announce-close { top: 50%; transform: translateY(-50%); }
+@media (max-width: 760px) { .announce-meta { display: none; } }
+
+/* Hero: what every token check shows */
+.hero-feats { list-style: none; margin: 22px auto 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-width: 760px; }
+.hero-feats a { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border: 1px solid rgba(228, 255, 26, 0.28); border-radius: 999px; background: rgba(228, 255, 26, 0.06); color: var(--text); font-size: 14px; font-weight: 600; text-decoration: none; transition: border-color 0.15s, background 0.15s, transform 0.15s; }
+.hero-feats a:hover { border-color: var(--accent); background: rgba(228, 255, 26, 0.12); transform: translateY(-1px); }
+.hero-feats span { font-size: 15px; }

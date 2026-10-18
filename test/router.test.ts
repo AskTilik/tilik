@@ -314,7 +314,7 @@ describe("ask-anything router: one pipeline, the right tools", () => {
     net = world();
     const { ask } = setup();
     const r = await ask(`Analyze this token on Robinhood Chain ${TOKEN}`);
-    assert.deepEqual(caps(r).sort(), ["chain.data", "market.data"]);
+    assert.deepEqual(caps(r).sort(), ["chain.data", "market.data", "token.check"]);
     assert.ok(r.plan.tools.every((t) => t.phase === 1), "independent → same phase (parallel)");
     assert.equal(r.type, "combined");
     assert.deepEqual(Object.keys(r.retrieval.byFamily).sort(), ["market", "onchain"]);
@@ -604,7 +604,7 @@ describe("streaming contract (v2)", () => {
     const statuses = events.filter((e) => e.event === "status").map((e) => e.data.message);
     for (const s of statuses) {
       assert.ok(
-        ["Understanding your question…", "Checking Robinhood Chain…", "Analyzing market data…", "Writing the answer…"].includes(s),
+        ["Understanding your question…", "Checking Robinhood Chain…", "Analyzing market data…", "Running TILIK token check…", "Writing the answer…"].includes(s),
         `safe fixed status: ${s}`,
       );
     }

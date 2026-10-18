@@ -13,7 +13,7 @@
   },
   "crons": [
     {
-      "path": "/api/cron/holders",
+      "path": "/api/cron/daily",
       "schedule": "0 1 * * *"
     }
   ],

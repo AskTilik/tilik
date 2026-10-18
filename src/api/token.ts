@@ -25,6 +25,9 @@ import { again, readLiquidityLock, readSnipers, type LiquidityLock, type Snipers
  * minute; each client also has its own allowance. Third-party text is cleaned and bounded.
  */
 const TOKEN_TTL_MS = 60_000;
+const PARTIAL_TTL_MS = 10_000;
+/** A token with a market but no dev wallet or early-buyer facts: those reads failed this time. */
+export const isPartial = (t: TokenIntel) => Boolean(t.market) && (!t.dev || !t.snipers);
 const RADAR_TTL_MS = 60_000;
 const TIMEOUT_MS = 15_000;
 const PER_MINUTE = 20;
@@ -188,14 +191,14 @@ export function createTokenIntel(
           : undefined));
   const cache = new TtlCache<unknown>(300);
   const inflight = new Map<string, Promise<unknown>>();
-  const cached = async <T>(key: string, ttl: number, load: () => Promise<T>): Promise<T> => {
+  const cached = async <T>(key: string, ttl: number | ((v: T) => number), load: () => Promise<T>): Promise<T> => {
     const hit = cache.get(key);
     if (hit !== undefined) return hit as T;
     let p = inflight.get(key) as Promise<T> | undefined;
     if (!p) {
       p = load()
         .then((v) => {
-          cache.set(key, v, ttl);
+          cache.set(key, v, typeof ttl === "function" ? ttl(v) : ttl);
           return v;
         })
         .finally(() => inflight.delete(key));
@@ -664,7 +667,8 @@ export function createTokenIntel(
     launches: () => cached("launches", 90_000, launches),
     chart: (address: string, tf: Timeframe) => cached(`chart:${address.toLowerCase()}:${tf}`, 120_000, () => chart(address, tf)),
     trades: (address: string) => cached(`trades:${address.toLowerCase()}`, 30_000, () => trades(address)),
-    get: (address: string) => cached(`tok:${address.toLowerCase()}`, TOKEN_TTL_MS, () => intel(address)),
+    // A check missing its launch facts (the explorer was busy) is kept briefly, so the next request tries again.
+    get: (address: string) => cached(`tok:${address.toLowerCase()}`, (t: TokenIntel) => (isPartial(t) ? PARTIAL_TTL_MS : TOKEN_TTL_MS), () => intel(address)),
     radar: () => cached("radar", RADAR_TTL_MS, radar),
     _log: logger,
   };
@@ -694,7 +698,7 @@ export function tokenRoutes(
       const body = await intel.get(check.address);
       await onIntel?.(check.address, body).catch(() => {});
       // Public data, same for everyone: let the CDN serve repeats so GeckoTerminal sees ~1 call per minute.
-      c.header("Cache-Control", "public, max-age=15, s-maxage=60, stale-while-revalidate=240");
+      c.header("Cache-Control", isPartial(body) ? "public, max-age=5, s-maxage=10" : "public, max-age=15, s-maxage=60, stale-while-revalidate=240");
       return c.json(body);
     } catch (err) {
       if (err instanceof Error && err.name === "NotAToken") return c.json({ error: { kind: "validation", message: "This address is not a token." } }, 400);
