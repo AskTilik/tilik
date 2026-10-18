@@ -1,0 +1,17 @@
+# Telegram watchlist alerts: Vercel's free plan runs crons once a day, so GitHub calls the alerts route every 10 minutes.
+name: telegram-alerts
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run alerts
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 240 -H "Authorization: Bearer $CRON_SECRET" https://asktilik.com/api/cron/alerts
