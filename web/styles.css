@@ -1073,3 +1073,21 @@ a.pill { text-decoration: none; display: inline-block; }
 .hero-feats a { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border: 1px solid rgba(228, 255, 26, 0.28); border-radius: 999px; background: rgba(228, 255, 26, 0.06); color: var(--text); font-size: 14px; font-weight: 600; text-decoration: none; transition: border-color 0.15s, background 0.15s, transform 0.15s; }
 .hero-feats a:hover { border-color: var(--accent); background: rgba(228, 255, 26, 0.12); transform: translateY(-1px); }
 .hero-feats span { font-size: 15px; }
+
+/* AI Token Brief */
+.ai-brief { border: 1px solid rgba(228, 255, 26, 0.35); border-radius: 14px; padding: 16px 18px; background: linear-gradient(135deg, rgba(228, 255, 26, 0.07), rgba(56, 214, 245, 0.04)); display: flex; flex-direction: column; gap: 12px; }
+.ai-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.ai-badge { font: 700 12px/1 var(--mono, monospace); letter-spacing: 0.16em; color: var(--accent); }
+.ai-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.ai-headline { margin: 0; font-size: 18px; }
+.ai-points { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 15px; line-height: 1.5; }
+.ai-fact { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 6px; font-size: 11px; line-height: 18px; background: rgba(228, 255, 26, 0.15); color: var(--accent); cursor: help; }
+.ai-facts summary { cursor: pointer; color: var(--dim); font-size: 13px; }
+.ai-facts ol { margin: 8px 0 0; padding-left: 22px; display: grid; gap: 4px; font-size: 13px; color: var(--dim); }
+
+/* Token Story on the chart */
+.tc-plot { position: relative; }
+.story-tip { position: absolute; z-index: 2; max-width: 200px; padding: 6px 10px; border-radius: 8px; background: rgba(0, 0, 0, 0.9); border: 1px solid var(--border); font-size: 12px; pointer-events: none; }
+.story-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.story-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 13px; padding: 4px 0; border-top: 1px solid var(--border); }
+.story-list li.story-h { display: block; border-top: 0; font: 700 11px var(--mono, monospace); letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase; }
